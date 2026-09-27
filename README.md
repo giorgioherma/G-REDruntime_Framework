@@ -2,8 +2,7 @@
 
 A REDscript runtime and optimization framework for Cyberpunk 2077.
 
-**Current source version:** `0.6.0-pass6`  
-**Current framework line:** Pass 6 — frame-pacing / shared-runtime refinement  
+**Current version:** `0.6.0`  
 **Status:** development source; acceptance still depends on compile, runtime, regression and profiling review.
 
 ## Purpose
@@ -268,7 +267,7 @@ Framework and third-party mod patches are packaged separately.
 
 ## Project status
 
-The repository source currently reports `0.6.0-pass6`. Earlier README text lagged behind the implemented framework passes.
+The repository source currently reports `0.6.0`.
 
 Pass 1 remains the explicitly documented validated baseline. Later passes remain development work until their compile/runtime/regression/profile acceptance is recorded.
 
