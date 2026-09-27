@@ -95,13 +95,6 @@ public class InputHub extends IScriptable {
   private let m_lastUsedKBM: Bool;
   private let m_registeredActions: array<CName>;
 
-  // Listener callbacks are public extension points. Subscriptions may therefore
-  // change while an input/device event is being dispatched. Defer structural
-  // mutation and engine-registration changes until the outermost dispatch ends.
-  private let m_dispatchDepth: Int32;
-  private let m_needsSubscriptionCompact: Bool;
-  private let m_registrationDirty: Bool;
-
   public func Initialize(state: ref<StateCache>, diagnostics: ref<Diagnostics>, scheduler: ref<Scheduler>) -> Void {
     this.m_state = state;
     this.m_diagnostics = diagnostics;
@@ -140,7 +133,6 @@ public class InputHub extends IScriptable {
       deviceIndex += 1;
     }
 
-    ArrayClear(this.m_subscriptions);
     ArrayClear(this.m_wildcardSubscriptions);
     ArrayClear(this.m_routes);
     ArrayClear(this.m_deviceSubscriptions);
@@ -149,9 +141,6 @@ public class InputHub extends IScriptable {
     this.m_specificCount = 0;
     this.m_deviceCount = 0;
     this.m_deviceKnown = false;
-    this.m_dispatchDepth = 0;
-    this.m_needsSubscriptionCompact = false;
-    this.m_registrationDirty = false;
     this.m_event = null;
     this.m_scheduler = null;
   }
@@ -188,7 +177,7 @@ public class InputHub extends IScriptable {
       this.m_specificCount += 1;
     }
 
-    this.RequestRegistrationRefresh();
+    this.RefreshRegistration();
     return sub.id;
   }
 
@@ -209,7 +198,7 @@ public class InputHub extends IScriptable {
     this.m_nextID += 1;
     this.m_deviceCount += 1;
     ArrayPush(this.m_deviceSubscriptions, sub);
-    this.RequestRegistrationRefresh();
+    this.RefreshRegistration();
     return sub.id;
   }
 
@@ -222,12 +211,8 @@ public class InputHub extends IScriptable {
         sub.active = false;
         sub.listener = null;
         this.m_deviceCount -= 1;
-        this.m_needsSubscriptionCompact = true;
-
-        if this.m_dispatchDepth <= 0 {
-          this.CompactSubscriptions();
-        }
-        this.RequestRegistrationRefresh();
+        ArrayErase(this.m_deviceSubscriptions, i);
+        this.RefreshRegistration();
         return true;
       }
       i += 1;
@@ -242,22 +227,20 @@ public class InputHub extends IScriptable {
       let sub = this.m_subscriptions[i];
       if sub.id == id && sub.active {
         if this.IsWildcard(sub.actionName) {
+          this.RemoveSubscription(this.m_wildcardSubscriptions, sub);
           this.m_wildcardCount -= 1;
         } else {
+          let route = this.FindRoute(sub.actionName);
+          if IsDefined(route) {
+            this.RemoveSubscription(route.subscriptions, sub);
+          }
           this.m_specificCount -= 1;
         }
 
-        // Do not erase from dispatch arrays while a listener callback is
-        // running. Mark inactive now; compact once dispatch is finished.
         sub.active = false;
         sub.listener = null;
         this.m_activeCount -= 1;
-        this.m_needsSubscriptionCompact = true;
-
-        if this.m_dispatchDepth <= 0 {
-          this.CompactSubscriptions();
-        }
-        this.RequestRegistrationRefresh();
+        this.RefreshRegistration();
         return true;
       }
       i += 1;
@@ -310,7 +293,6 @@ public class InputHub extends IScriptable {
     }
 
     this.m_lastUsedKBM = currentLastUsedKBM;
-    this.BeginDispatch();
 
     let i: Int32 = 0;
     let count = ArraySize(this.m_deviceSubscriptions);
@@ -321,18 +303,14 @@ public class InputHub extends IScriptable {
       }
       i += 1;
     }
-
-    this.EndDispatch();
   }
 
   // Compatibility path for callers that explicitly route one ListenerAction
-  // through the hub.
+  // through the hub. Engine bridges use the split hot paths below.
   public func Publish(action: ListenerAction) -> Bool {
     if this.m_activeCount <= 0 || !IsDefined(this.m_event) {
       return false;
     }
-
-    this.BeginDispatch();
 
     if IsDefined(this.m_diagnostics) {
       this.m_diagnostics.InputSeen();
@@ -341,10 +319,7 @@ public class InputHub extends IScriptable {
     let evt = this.PrepareEvent(action);
     this.DispatchWildcards(evt);
     this.DispatchSpecific(evt);
-    let consumed = evt.consumed;
-
-    this.EndDispatch();
-    return consumed;
+    return evt.consumed;
   }
 
   public func PublishWildcard(action: ListenerAction) -> Bool {
@@ -352,24 +327,13 @@ public class InputHub extends IScriptable {
       return false;
     }
 
-    this.BeginDispatch();
-
     if IsDefined(this.m_diagnostics) {
       this.m_diagnostics.InputSeen();
     }
 
-    // While a wildcard bridge is registered it is the single engine ingress
-    // for input. Route specific subscribers from the same decoded event so an
-    // action is decoded once and consumed state is shared across both groups.
     let evt = this.PrepareEvent(action);
     this.DispatchWildcards(evt);
-    if this.m_specificCount > 0 {
-      this.DispatchSpecific(evt);
-    }
-    let consumed = evt.consumed;
-
-    this.EndDispatch();
-    return consumed;
+    return evt.consumed;
   }
 
   public func PublishSpecific(action: ListenerAction) -> Bool {
@@ -377,18 +341,14 @@ public class InputHub extends IScriptable {
       return false;
     }
 
-    this.BeginDispatch();
-
-    if IsDefined(this.m_diagnostics) {
+    // When a wildcard bridge exists it already counted this engine input.
+    if this.m_wildcardCount <= 0 && IsDefined(this.m_diagnostics) {
       this.m_diagnostics.InputSeen();
     }
 
     let evt = this.PrepareEvent(action);
     this.DispatchSpecific(evt);
-    let consumed = evt.consumed;
-
-    this.EndDispatch();
-    return consumed;
+    return evt.consumed;
   }
 
   private func PrepareEvent(action: ListenerAction) -> ref<InputEvent> {
@@ -402,12 +362,9 @@ public class InputHub extends IScriptable {
     let i: Int32 = 0;
     let count = ArraySize(this.m_wildcardSubscriptions);
     while i < count {
-      let sub = this.m_wildcardSubscriptions[i];
-      if IsDefined(sub) && sub.active && IsDefined(sub.listener) {
-        sub.listener.OnGRedInput(evt);
-        if IsDefined(this.m_diagnostics) {
-          this.m_diagnostics.InputDelivery();
-        }
+      this.m_wildcardSubscriptions[i].listener.OnGRedInput(evt);
+      if IsDefined(this.m_diagnostics) {
+        this.m_diagnostics.InputDelivery();
       }
       i += 1;
     }
@@ -418,16 +375,13 @@ public class InputHub extends IScriptable {
     let routeCount = ArraySize(this.m_routes);
     while routeIndex < routeCount {
       let route = this.m_routes[routeIndex];
-      if IsDefined(route) && Equals(route.actionName, evt.actionName) {
+      if Equals(route.actionName, evt.actionName) {
         let subIndex: Int32 = 0;
         let subCount = ArraySize(route.subscriptions);
         while subIndex < subCount {
-          let sub = route.subscriptions[subIndex];
-          if IsDefined(sub) && sub.active && IsDefined(sub.listener) {
-            sub.listener.OnGRedInput(evt);
-            if IsDefined(this.m_diagnostics) {
-              this.m_diagnostics.InputDelivery();
-            }
+          route.subscriptions[subIndex].listener.OnGRedInput(evt);
+          if IsDefined(this.m_diagnostics) {
+            this.m_diagnostics.InputDelivery();
           }
           subIndex += 1;
         }
@@ -461,88 +415,16 @@ public class InputHub extends IScriptable {
     return null;
   }
 
-  private func BeginDispatch() -> Void {
-    this.m_dispatchDepth += 1;
-  }
-
-  private func EndDispatch() -> Void {
-    if this.m_dispatchDepth > 0 {
-      this.m_dispatchDepth -= 1;
-    }
-
-    if this.m_dispatchDepth > 0 {
-      return;
-    }
-
-    if this.m_needsSubscriptionCompact {
-      this.CompactSubscriptions();
-    }
-
-    if this.m_registrationDirty {
-      this.m_registrationDirty = false;
-      this.RefreshRegistration();
-    }
-  }
-
-  private func RequestRegistrationRefresh() -> Void {
-    if this.m_dispatchDepth > 0 {
-      this.m_registrationDirty = true;
-      return;
-    }
-    this.RefreshRegistration();
-  }
-
-  private func CompactSubscriptions() -> Void {
-    let i: Int32 = ArraySize(this.m_subscriptions) - 1;
-    while i >= 0 {
-      let sub = this.m_subscriptions[i];
-      if !IsDefined(sub) || !sub.active {
-        ArrayErase(this.m_subscriptions, i);
+  private func RemoveSubscription(list: script_ref<array<ref<InputSubscription>>>, sub: ref<InputSubscription>) -> Void {
+    let i: Int32 = 0;
+    let count = ArraySize(Deref(list));
+    while i < count {
+      if Equals(Deref(list)[i], sub) {
+        ArrayErase(Deref(list), i);
+        return;
       }
-      i -= 1;
+      i += 1;
     }
-
-    let wildcardIndex: Int32 = ArraySize(this.m_wildcardSubscriptions) - 1;
-    while wildcardIndex >= 0 {
-      let wildcardSub = this.m_wildcardSubscriptions[wildcardIndex];
-      if !IsDefined(wildcardSub) || !wildcardSub.active {
-        ArrayErase(this.m_wildcardSubscriptions, wildcardIndex);
-      }
-      wildcardIndex -= 1;
-    }
-
-    let routeIndex: Int32 = ArraySize(this.m_routes) - 1;
-    while routeIndex >= 0 {
-      let route = this.m_routes[routeIndex];
-      if IsDefined(route) {
-        let subIndex: Int32 = ArraySize(route.subscriptions) - 1;
-        while subIndex >= 0 {
-          let routeSub = route.subscriptions[subIndex];
-          if !IsDefined(routeSub) || !routeSub.active {
-            ArrayErase(route.subscriptions, subIndex);
-          }
-          subIndex -= 1;
-        }
-
-        if ArraySize(route.subscriptions) <= 0 {
-          ArrayErase(this.m_routes, routeIndex);
-        }
-      } else {
-        ArrayErase(this.m_routes, routeIndex);
-      }
-      routeIndex -= 1;
-    }
-
-    let deviceIndex: Int32 = ArraySize(this.m_deviceSubscriptions) - 1;
-    while deviceIndex >= 0 {
-      let deviceSub = this.m_deviceSubscriptions[deviceIndex];
-      if !IsDefined(deviceSub) || !deviceSub.active {
-        ArrayErase(this.m_deviceSubscriptions, deviceIndex);
-      }
-      deviceIndex -= 1;
-    }
-
-    this.m_needsSubscriptionCompact = false;
   }
 
   private func RefreshRegistration() -> Void {
@@ -582,14 +464,6 @@ public class InputHub extends IScriptable {
 
   private func RefreshSpecificRegistration() -> Void {
     if !IsDefined(this.m_registeredPlayer) || !IsDefined(this.m_specificBridge) {
-      return;
-    }
-
-    // A wildcard listener already receives every action. In that mode it is
-    // the single engine ingress and also routes matching specific subscribers,
-    // avoiding duplicate callbacks/decoding for the same action.
-    if this.m_wildcardCount > 0 {
-      this.UnregisterSpecificBridge();
       return;
     }
 
