@@ -14,6 +14,14 @@ public class QuestFactWatch extends IScriptable {
   public let lastObservedValue: Int32;
 }
 
+// Each consumer receives a unique interest token; one consumer cannot
+// accidentally unregister another consumer's engine subscription.
+public class QuestFactInterest extends IScriptable {
+  public let id: Int32;
+  public let fact: CName;
+  public let active: Bool;
+}
+
 public class QuestFactBridge extends IScriptable {
   private let m_owner: wref<QuestFactSignals>;
   private let m_fact: CName;
@@ -39,11 +47,14 @@ public class QuestFactSignals extends IScriptable {
   private let m_dirty: wref<DirtyFlags>;
   private let m_events: wref<EventBus>;
   private let m_watches: array<ref<QuestFactWatch>>;
+  private let m_interests: array<ref<QuestFactInterest>>;
+  private let m_nextInterestID: Int32;
   private let m_ready: Bool;
 
   public func Initialize(game: GameInstance, dirty: ref<DirtyFlags>,
                          events: ref<EventBus>) -> Void {
     this.m_game = game;
+    this.m_nextInterestID = 1;
     this.m_dirty = dirty;
     this.m_events = events;
     this.m_ready = true;
@@ -64,17 +75,22 @@ public class QuestFactSignals extends IScriptable {
       watch.bridge = null;
       i += 1;
     }
+    let j: Int32 = 0;
+    while j < ArraySize(this.m_interests) {
+      this.m_interests[j].active = false;
+      j += 1;
+    }
     this.m_dirty = null;
     this.m_events = null;
   }
 
-  public func AcquireFact(fact: CName) -> Bool {
+  public func AcquireFact(fact: CName) -> Int32 {
     if !this.m_ready {
-      return false;
+      return 0;
     }
     let qs = GameInstance.GetQuestsSystem(this.m_game);
     if !IsDefined(qs) {
-      return false;
+      return 0;
     }
 
     let i: Int32 = 0;
@@ -83,22 +99,20 @@ public class QuestFactSignals extends IScriptable {
       if Equals(watch.fact, fact) {
         if watch.interestCount > 0 && watch.engineListenerID != 0u {
           watch.interestCount += 1;
-          return true;
+          return this.AddInterest(fact);
         }
-        // Re-activate only when the exact original engine listener was
-        // released. Never return success for a failed registration.
         let bridge = new QuestFactBridge();
         bridge.Initialize(this, fact);
         let registration = qs.RegisterListener(fact, bridge, n"OnFactChanged");
         if registration == 0u {
-          return false;
+          return 0;
         }
         watch.bridge = bridge;
         watch.engineListenerID = registration;
         watch.interestCount = 1;
         watch.hasObservedValue = false;
         watch.version += 1u;
-        return true;
+        return this.AddInterest(fact);
       }
       i += 1;
     }
@@ -107,7 +121,7 @@ public class QuestFactSignals extends IScriptable {
     bridge.Initialize(this, fact);
     let registration = qs.RegisterListener(fact, bridge, n"OnFactChanged");
     if registration == 0u {
-      return false;
+      return 0;
     }
     let watch = new QuestFactWatch();
     watch.fact = fact;
@@ -117,28 +131,50 @@ public class QuestFactSignals extends IScriptable {
     watch.version = 1u;
     watch.hasObservedValue = false;
     ArrayPush(this.m_watches, watch);
-    return true;
+    return this.AddInterest(fact);
   }
 
-  public func ReleaseFact(fact: CName) -> Bool {
-    let i: Int32 = 0;
-    while i < ArraySize(this.m_watches) {
-      let watch = this.m_watches[i];
-      if Equals(watch.fact, fact) && watch.interestCount > 0 {
-        watch.interestCount -= 1;
-        if watch.interestCount == 0 {
-          let qs = GameInstance.GetQuestsSystem(this.m_game);
-          if IsDefined(qs) && watch.engineListenerID != 0u {
-            qs.UnregisterListener(watch.fact, watch.engineListenerID);
+  private func AddInterest(fact: CName) -> Int32 {
+    let entry = new QuestFactInterest();
+    entry.id = this.m_nextInterestID;
+    entry.fact = fact;
+    entry.active = true;
+    this.m_nextInterestID += 1;
+    ArrayPush(this.m_interests, entry);
+    return entry.id;
+  }
+
+  public func ReleaseFact(interestID: Int32) -> Bool {
+    if interestID <= 0 {
+      return false;
+    }
+    let k: Int32 = 0;
+    while k < ArraySize(this.m_interests) {
+      let entry = this.m_interests[k];
+      if entry.id == interestID && entry.active {
+        entry.active = false;
+        let i: Int32 = 0;
+        while i < ArraySize(this.m_watches) {
+          let watch = this.m_watches[i];
+          if Equals(watch.fact, entry.fact) && watch.interestCount > 0 {
+            watch.interestCount -= 1;
+            if watch.interestCount == 0 {
+              let qs = GameInstance.GetQuestsSystem(this.m_game);
+              if IsDefined(qs) && watch.engineListenerID != 0u {
+                qs.UnregisterListener(watch.fact, watch.engineListenerID);
+              }
+              watch.engineListenerID = 0u;
+              watch.bridge = null;
+              watch.hasObservedValue = false;
+              watch.version += 1u;
+            }
+            return true;
           }
-          watch.engineListenerID = 0u;
-          watch.bridge = null;
-          watch.hasObservedValue = false;
-          watch.version += 1u;
+          i += 1;
         }
-        return true;
+        return false;
       }
-      i += 1;
+      k += 1;
     }
     return false;
   }
