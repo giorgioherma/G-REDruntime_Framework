@@ -1,0 +1,38 @@
+# Player lifecycle shared-state signal (development contract)
+
+**Owner:** G-REDruntime `main`. **Status:** source-level implementation for REDscript source consumers; real gameplay and measured performance are unverified. This is an additive contract in the existing `Runtime` + `StateCache`, not a second scheduler, polling service or CET native ABI.
+
+## Authoritative producer
+
+`GRedRuntime.Runtime` receives the engine's `PlayerAttachRequest` and `PlayerDetachRequest` as `ScriptableSystem` lifecycle notifications. The current live REDscript mod stack independently contains both notifications in working ScriptableSystem patterns; the implementation does not guess state transitions from frame time.
+
+- **Attach:** `StateCache.SetPlayer(player)` records the current weak player reference, marks it known if defined and increments `GetPlayerSignalGeneration()`. Runtime then invalidates its existing `ContextService`, rebinds the existing `InputHub`, marks `DirtyFlags.PLAYER`, and publishes `PLAYER / ATTACHED` only when listeners exist.
+- **Detach:** if `request.owner` names an earlier player different from the currently signaled player, ignore it. Otherwise `InvalidatePlayer()` first clears the weak handle, sets status to **UNKNOWN**, blocks re-discovery until the next authoritative attach, and increments generation. Runtime invalidates its context, unregisters existing input bridges / stops its opt-in device observation through `InputHub.OnPlayerAvailable(null)`, marks `DirtyFlags.PLAYER`, and publishes `PLAYER / DETACHED` only when subscribed.
+- **Shutdown:** invalidates signal knowledge and weak reference, bumps generation. The runtime's existing shutdown and owner cleanup remain authoritative.
+
+## Consumer contract
+
+Read only after confirming `Runtime.Get(game)` is defined and `runtime.IsReady()` is true:
+
+```reds
+let state = runtime.GetStateCache();
+let epoch = state.GetPlayerSignalGeneration();
+if state.HasAuthoritativePlayer() {
+    let player = state.GetAttachedPlayer();
+    // Current signaled player reference is valid for this access.
+} else {
+    // UNKNOWN: use the original live source getter if required.
+}
+```
+
+`HasAuthoritativePlayer()` means a valid handle was observed through an attach notification and remains defined. It does **not** imply combat, mounted vehicle, location, menu, blackboard values, inventory state, or player position is current. `GetPlayerSignalGeneration()` is a change/invalidation token **within one Runtime lifetime**, not a saved-game identifier or global monotonic time; do not persist it.
+
+`StateCache.GetPlayer()` preserves its historical lazy PlayerSystem lookup before the first authoritative player event. After a detach, it intentionally declines to rediscover a new player until the next attach. Source-generated adapters must retain the **original author getter** when the signal is UNKNOWN, when the framework is missing, or when a session replaces its Runtime. No generic override of existing player-getter semantics is approved by this service alone.
+
+## Proof and remaining gates
+
+- Owner source: `r6/scripts/G-RedRuntime/Core/Runtime.reds`, `State/StateCache.reds`; no new owner files, extra subscriptions or high-frequency pollers.
+- GCO `dev/redscript/resolver_handoff` compiles the authoritative framework checkout with the private 2,319-file effective REDscript source stack and official SCC 0.5.31. The same workflow runs mutation-backed lifecycle contracts for missing detach, stale-owner mismatch, forgotten listener cleanup, re-acquiring between detach and attach, and missing generation invalidation.
+- **Not proven by these source tests or SCC:** engine/gameplay detach timing, reentrant subscription behavior under real scene reload, runtime CPU savings, cross-mod generic consumers, or safe substitution of combat/vehicle/NEAR-FAR/ink state. A matched game test and a source-admitted consumer are prerequisites to shipping optimizations.
+
+Do not add generic state-change polling, add another framework-wide timer, conflate `DirtyFlags` with value authority, or replace unrelated mod state without explicit source and lifecycle proof.
