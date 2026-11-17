@@ -143,7 +143,7 @@ public class Scheduler extends IScriptable {
   }
 
   public func Register(job: ref<ScheduledJob>) -> Int32 {
-    if !IsDefined(job) {
+    if !IsDefined(job) || this.ContainsJob(job) {
       return 0;
     }
 
@@ -262,6 +262,18 @@ public class Scheduler extends IScriptable {
       this.CompactJobs();
     }
     this.ScheduleNext();
+  }
+
+  private func ContainsJob(job: ref<ScheduledJob>) -> Bool {
+    let i: Int32 = 0;
+    let count = ArraySize(this.m_jobs);
+    while i < count {
+      if IsDefined(this.m_jobs[i]) && Equals(this.m_jobs[i], job) {
+        return true;
+      }
+      i += 1;
+    }
+    return false;
   }
 
   private func Now() -> Float {
