@@ -44,6 +44,8 @@ public class NativeLocationWatch extends IScriptable {
   public let state: Int32;
   public let known: Bool;
   public let interestCount: Int32;
+  public let pendingState: Int32;
+  public let armedByUs: Bool;
 }
 
 public class NativeLocationPollJob extends ScheduledJob {
@@ -90,17 +92,14 @@ public class NativeLocationSignals extends IScriptable {
                                 expectedCount: Int32,
                                 listener: ref<NativeLocationListener>,
                                 backend: ref<NativeLocationBackend>) -> Int32 {
-    if !this.m_ready || !IsDefined(listener) || !IsDefined(backend) ||
+    if !this.m_ready || !IsDefined(listener) ||
+       (!IsDefined(backend) && !IsDefined(this.m_backend)) ||
        owner <= 0 || index < 0 || expectedCount <= 0 ||
        expectedCount > 100000 || index >= expectedCount {
       return 0;
     }
-    if IsDefined(this.m_backend) && NotEquals(this.m_backend, backend) {
-      // The FIRST backend owns the single native stream. Accept a second
-      // instance only after its owner releases all subscriptions.
-      // Callers should supply the same shared backend instance.
-      return 0;
-    }
+    // First adapter supplies the backend; subsequent mods reuse it rather
+    // than creating another native stream or requiring object identity.
     if !IsDefined(this.m_backend) {
       this.m_backend = backend;
     }
@@ -167,6 +166,10 @@ public class NativeLocationSignals extends IScriptable {
               // Invalidate cached state; never publish FAR as a teardown.
               watch.known = false;
               watch.state = -1;
+              if watch.armedByUs && IsDefined(this.m_backend) {
+                this.m_backend.Arm(watch.anchor, false);
+                watch.armedByUs = false;
+              }
               if this.m_dispatchDepth == 0 {
                 ArrayErase(this.m_watches, w);
               } else {
@@ -385,6 +388,15 @@ public class NativeLocationSignals extends IScriptable {
           return false;
         }
         watch.anchor = anchor;
+        watch.pendingState = value;
+        if watch.owner >= 100000000 && !watch.armedByUs {
+          // Source-derived REDscript owners use a reserved namespace.
+          // Never disarm CET's original owners as a REDscript side effect.
+          if !this.m_backend.Arm(anchor, true) {
+            return false;
+          }
+          watch.armedByUs = true;
+        }
       }
       i += 1;
     }
@@ -396,7 +408,7 @@ public class NativeLocationSignals extends IScriptable {
     while j < ArraySize(this.m_watches) {
       let watch = this.m_watches[j];
       if watch.interestCount > 0 {
-        this.SetState(watch, this.m_backend.AnchorState(watch.anchor));
+        this.SetState(watch, watch.pendingState);
       }
       j += 1;
     }
@@ -405,6 +417,15 @@ public class NativeLocationSignals extends IScriptable {
 
   public func Shutdown() -> Void {
     this.m_ready = false;
+    let w: Int32 = 0;
+    while w < ArraySize(this.m_watches) {
+      let watch = this.m_watches[w];
+      if watch.armedByUs && IsDefined(this.m_backend) {
+        this.m_backend.Arm(watch.anchor, false);
+        watch.armedByUs = false;
+      }
+      w += 1;
+    }
     this.Stop();
     let i: Int32 = 0;
     while i < ArraySize(this.m_interests) {
