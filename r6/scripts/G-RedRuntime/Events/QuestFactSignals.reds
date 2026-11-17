@@ -36,7 +36,7 @@ public class QuestFactBridge extends IScriptable {
   // per-mod callbacks and their return/ordering semantics are unchanged.
   protected cb func OnFactChanged(value: Int32) -> Bool {
     if IsDefined(this.m_owner) {
-      this.m_owner.OnFactChanged(this.m_fact, value);
+      this.m_owner.OnFactChanged(this.m_fact, value, this);
     }
     return false;
   }
@@ -177,15 +177,19 @@ public class QuestFactSignals extends IScriptable {
 
   // Each engine callback advances the version, including repeated values.
   // Repeated event delivery can be semantically meaningful to consumers.
-  public func OnFactChanged(fact: CName, value: Int32) -> Void {
+  // A stale callback from a previously released/replaced bridge must not
+  // update a new interest on the SAME fact. Verify the registered bridge
+  // object as well as the fact name before publishing any state.
+  public func OnFactChanged(fact: CName, value: Int32,
+                            bridge: ref<QuestFactBridge>) -> Void {
     if !this.m_ready {
       return;
     }
     let i: Int32 = 0;
     while i < ArraySize(this.m_watches) {
       let watch = this.m_watches[i];
-      if Equals(watch.fact, fact) && watch.interestCount > 0 &&
-         watch.engineListenerID != 0u {
+      if Equals(watch.fact, fact) && Equals(watch.bridge, bridge) &&
+         watch.interestCount > 0 && watch.engineListenerID != 0u {
         watch.version += 1u;
         watch.lastObservedValue = value;
         watch.hasObservedValue = true;
