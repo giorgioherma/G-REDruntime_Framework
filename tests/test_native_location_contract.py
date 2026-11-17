@@ -147,7 +147,7 @@ class FrameworkNativeLocationContracts(unittest.TestCase):
         broken = self.signals.replace(
             "if !this.m_backend.AckSnapshot(this.m_consumer)",
             "if false")
-        with self.assertRaisesRegex(AssertionError):
+        with self.assertRaisesRegex(AssertionError, ""):
             verify(self.runtime, broken, self.backend)
 
     def test_reject_missing_rtti_api_in_optional_backend(self):
