@@ -4,6 +4,16 @@ All notable G-REDruntime development passes are recorded here.
 
 A pass is only marked **Accepted** after compile, runtime, functional, and profiling review. Candidate builds do not automatically become the next base.
 
+## [Unreleased] — opt-in quest-fact pooled signals (CANDIDATE)
+
+**Status:** source/official SCC development candidate. No source consumer rewrites, source-admitted gameplay optimization, game load/regression testing or measured gains have been accepted.
+
+- Added one `QuestFactSignals` class group under `Events/QuestFactSignals.reds`, held by the existing Runtime. With no interested consumers, **zero engine registrations and zero fact polling**.
+- `AcquireFact(CName)` returns an owned unique positive token or 0 on missing engine support; uses one additional `QuestsSystem.RegisterListener` per watched exact fact name. `ReleaseFact(token)` is idempotence-safe across consumers, unregisters on the last release and frees temporary listener/watch state.
+- Tracks per-fact callback version and UNKNOWN/observed last Int32 state, emits optional existing `EventBus` `QUEST_FACT/CHANGED` and `QUEST_FACT/SESSION_INVALIDATED` messages, and marks `DirtyFlags.QUEST_FACT` only for interested facts/session invalidation. No new timers, polls or engine hooks.
+- The system **does not replace original mod callback delivery** and is not a source rewrite or mod-name allowlist. Combined SCC is not proof of original callback return/ordering or gameplay equivalence.
+- GCO `dev/redscript/resolver_handoff` owns a separate read-only `scan-quest-facts` whole-source reader/writer/listener graph and the framework-owner mutation contracts. See `documentation/QUEST_FACT_SIGNAL_CONTRACT.md`.
+
 ## [Unreleased] — event-backed player lifetime signal (CANDIDATE)
 
 **Status:** source + isolated official SCC accepted in GCO CI; **gameplay, feature regression and measured gains NOT YET ACCEPTED**. Framework manifest/version remains 0.6.0-pass6.
