@@ -36,3 +36,16 @@ if state.HasAuthoritativePlayer() {
 - **Not proven by these source tests or SCC:** engine/gameplay detach timing, reentrant subscription behavior under real scene reload, runtime CPU savings, cross-mod generic consumers, or safe substitution of combat/vehicle/NEAR-FAR/ink state. A matched game test and a source-admitted consumer are prerequisites to shipping optimizations.
 
 Do not add generic state-change polling, add another framework-wide timer, conflate `DirtyFlags` with value authority, or replace unrelated mod state without explicit source and lifecycle proof.
+
+## Shared source-generated player provider (2026-11-18)
+
+The existing `StateCache.reds` now also contains `GRedRuntime.SharedProviders`. This is only a thin facade over `Runtime.Get(game)` and `StateCache`; it creates no second player producer, listener, timer or cache. Methods:
+
+- `Player(game)`: returns the `StateCache.GetAttachedPlayer()` only when the authoritative attach signal is known and the handle valid; else calls the original live `GameInstance.GetPlayerSystem(game).GetLocalPlayerMainGameObject() as PlayerPuppet`.
+- `Quests(game)`: uses the existing cached `QuestsSystem` when the runtime is ready; else the original `GameInstance.GetQuestsSystem(game)`.
+- `Delay(game)`: uses the existing cached `DelaySystem` when ready; else the original `GameInstance.GetDelaySystem(game)`.
+
+GCO REDscript Resolver development branch generates the exact typed player-getter consumer using `import GRedRuntime.*` and `SharedProviders.Player(game)` under `SHARED_PLAYER_SIGNAL_V1`. The current source replay found 46 syntactically eligible callsites across 17 live files in its snapshot. **Those are syntactic rewrites, not proof of performance gain or gameplay equivalence.** A source-level/compiler pass does not assert game-test acceptance.
+
+The separately generated CET C++ player position/location coordinator remains owned by CET. The REDscript native RTTI adapter is staged by GCO and is not part of this StateCache; neither requires or creates duplicate location observation.
+
