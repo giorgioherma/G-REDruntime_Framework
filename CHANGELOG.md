@@ -4,6 +4,16 @@ All notable G-REDruntime development passes are recorded here.
 
 A pass is only marked **Accepted** after compile, runtime, functional, and profiling review. Candidate builds do not automatically become the next base.
 
+## [Unreleased] — event-backed player lifetime signal (CANDIDATE)
+
+**Status:** source + isolated official SCC accepted in GCO CI; **gameplay, feature regression and measured gains NOT YET ACCEPTED**. Framework manifest/version remains 0.6.0-pass6.
+
+- Existing `Runtime` now handles authoritative `PlayerDetachRequest` as well as attach; rejects stale prior-player detach, invalidates shared player/context, marks `PLAYER` dirty and conditionally publishes `PLAYER/DETACHED`.
+- Existing `StateCache` supplies `HasAuthoritativePlayer()`, `GetAttachedPlayer()`, `GetPlayerSignalGeneration()`, with UNKNOWN state and runtime-local generation. Its legacy `GetPlayer()` preserves original **uncached live PlayerSystem fallback** after detach, never promoting that fallback to authoritative shared state.
+- Existing `InputHub.OnPlayerUnavailable()` releases engine listener bridges/device observation and blocks re-registration until next authoritative attach while retaining subscriptions.
+- No new per-frame poll, scheduler, new framework module, native ABI or third-party mod rewrite. No claim about combat/vehicle/position/menu or NEAR/FAR state freshness.
+- **[GCO #593 SUCCESS](https://github.com/giorgioherma/Gs-Cyberpunk2077_Optimizations/actions/runs/44073412408):** seven negative lifecycle source tests, official SCC 0.5.31 compilation of latest ten framework files with the private full 2,319-file source stack, 89 REDscript managed tests and 323 package contracts. No game load/reload/feature A/B or performance proof. See `documentation/PLAYER_STATE_SIGNAL_CONTRACT.md`.
+
 ## [Unreleased] — Compatibility contract
 
 - Locked the framework to the existing Cyberpunk REDscript mod layout instead of defining a new mod package format.
