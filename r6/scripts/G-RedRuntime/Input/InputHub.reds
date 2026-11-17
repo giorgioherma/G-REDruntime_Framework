@@ -90,6 +90,9 @@ public class InputHub extends IScriptable {
   private let m_devicePollJobID: Int32;
 
   private let m_registeredPlayer: wref<PlayerPuppet>;
+  // Explicit engine detach suppresses source fallback/registration until
+  // Runtime supplies the next authoritative player attach.
+  private let m_playerDetached: Bool;
   private let m_wildcardRegistered: Bool;
   private let m_deviceKnown: Bool;
   private let m_lastUsedKBM: Bool;
@@ -157,11 +160,19 @@ public class InputHub extends IScriptable {
   }
 
   public func OnPlayerAvailable(player: wref<PlayerPuppet>) -> Void {
+    this.m_playerDetached = false;
     if IsDefined(this.m_registeredPlayer) && NotEquals(this.m_registeredPlayer, player) {
       this.UnregisterAllBridges();
     }
     this.m_registeredPlayer = player;
     this.RefreshRegistration();
+  }
+
+  public func OnPlayerUnavailable() -> Void {
+    this.m_playerDetached = true;
+    this.UnregisterAllBridges();
+    this.StopDevicePolling();
+    // Subscription identities remain intact for the next player attach.
   }
 
   public func Subscribe(actionName: CName, listener: ref<InputListener>) -> Int32 {
@@ -286,7 +297,7 @@ public class InputHub extends IScriptable {
   }
 
   public func PublishDeviceState() -> Void {
-    if this.m_deviceCount <= 0 {
+    if this.m_deviceCount <= 0 || this.m_playerDetached {
       return;
     }
 
@@ -546,6 +557,9 @@ public class InputHub extends IScriptable {
   }
 
   private func RefreshRegistration() -> Void {
+    if this.m_playerDetached {
+      return;
+    }
     let player = this.m_registeredPlayer;
     if !IsDefined(player) && IsDefined(this.m_state) {
       player = this.m_state.GetPlayer();
