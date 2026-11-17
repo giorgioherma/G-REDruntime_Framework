@@ -121,7 +121,7 @@ public class Runtime extends ScriptableSystem {
     if IsDefined(this.m_input) {
       // Preserve registered subscribers, but remove their engine listeners
       // from the departing player and stop device polling until next attach.
-      this.m_input.OnPlayerAvailable(null);
+      this.m_input.OnPlayerUnavailable();
     }
     if IsDefined(this.m_dirty) {
       this.m_dirty.Mark(n"PLAYER");
