@@ -170,7 +170,7 @@ GetAttachedPlayer()
 GetPlayerSignalGeneration()
 ```
 
-`Runtime` owns both attach and detach lifecycle transitions. The signal is **UNKNOWN** until an authoritative attach and again after detach; it must not substitute for changing combat, vehicle or position state. `GetPlayer()` retains the initial lazy fallback, while an explicit detach blocks stale player reacquisition until the next attach.
+`Runtime` owns both attach and detach lifecycle transitions. The signal is **UNKNOWN** until an authoritative attach and again after detach; it must not substitute for changing combat, vehicle or position state. `GetPlayer()` retains the original live PlayerSystem fallback even after detach, but its returned player is **never re-adopted into the shared cache** until the next authoritative attach. `InputHub.OnPlayerUnavailable()` independently releases engine listeners and prevents re-registration while detached.
 
 ## Example
 
