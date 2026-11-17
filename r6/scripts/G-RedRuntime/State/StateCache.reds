@@ -92,10 +92,16 @@ public class StateCache extends IScriptable {
   }
 
   public func GetPlayer() -> wref<PlayerPuppet> {
-    // Never return a detached player or silently adopt a new session's
-    // player before its authoritative OnPlayerAttach notification arrives.
+    // A detached/expired player can never be re-adopted into the SHARED
+    // cached signal before the next authoritative attach. Preserve the
+    // original live getter as an uncached fallback for existing callers.
     if this.m_playerDiscoveryBlocked ||
        (this.m_playerSignalKnown && !IsDefined(this.m_player)) {
+      this.CacheMiss();
+      let originalPlayerSystem = this.GetPlayerSystem();
+      if IsDefined(originalPlayerSystem) {
+        return originalPlayerSystem.GetLocalPlayerMainGameObject() as PlayerPuppet;
+      }
       return null;
     }
     if IsDefined(this.m_player) {
