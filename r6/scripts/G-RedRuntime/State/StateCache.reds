@@ -4,8 +4,9 @@ public class StateCache extends IScriptable {
   private let m_game: GameInstance;
   private let m_player: wref<PlayerPuppet>;
   // Event-backed player lifetime: only OnPlayerAttach authorizes this handle
-  // across callbacks. An explicit detach blocks fallback rediscovery until
-  // the next attach. The generation changes at every lifecycle boundary.
+  // across callbacks. An explicit detach blocks re-adoption into the
+  // shared cache; a live uncached original getter remains available.
+  // The generation changes at every lifecycle boundary.
   private let m_playerSignalKnown: Bool;
   private let m_playerDiscoveryBlocked: Bool;
   private let m_playerSignalGeneration: Uint32;
