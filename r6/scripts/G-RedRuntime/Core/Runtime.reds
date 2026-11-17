@@ -93,6 +93,42 @@ public class Runtime extends ScriptableSystem {
     }
   }
 
+  // PlayerAttachRequest/PlayerDetachRequest are native ScriptableSystem
+  // lifecycle notifications. Only this producer changes shared player state.
+  // Never poll the engine to infer a transition or cache changing combat/
+  // vehicle/UI values from the player handle.
+  private func OnPlayerDetach(request: ref<PlayerDetachRequest>) -> Void {
+    if !this.m_ready || !IsDefined(this.m_state) {
+      return;
+    }
+
+    let leaving = request.owner as PlayerPuppet;
+    let attached = this.m_state.GetAttachedPlayer();
+    if IsDefined(leaving) && IsDefined(attached) &&
+       NotEquals(leaving.GetEntityID(), attached.GetEntityID()) {
+      // A delayed detach from a replaced player must not invalidate the
+      // newly attached player's epoch or listeners.
+      return;
+    }
+
+    this.m_state.InvalidatePlayer();
+    if IsDefined(this.m_context) {
+      this.m_context.Invalidate();
+    }
+    if IsDefined(this.m_input) {
+      // Preserve registered subscribers, but remove their engine listeners
+      // from the departing player and stop device polling until next attach.
+      this.m_input.OnPlayerAvailable(null);
+    }
+    if IsDefined(this.m_dirty) {
+      this.m_dirty.Mark(n"PLAYER");
+    }
+
+    if IsDefined(this.m_events) && this.m_events.HasSubscribersFor(n"PLAYER") {
+      this.m_events.Publish(RuntimeEvent.Create(n"PLAYER", n"DETACHED"));
+    }
+  }
+
   public static func Get(game: GameInstance) -> ref<Runtime> {
     return GameInstance.GetScriptableSystemsContainer(game).Get(n"GRedRuntime.Runtime") as Runtime;
   }
