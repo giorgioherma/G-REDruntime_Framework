@@ -218,14 +218,19 @@ public class NativeLocationSignals extends IScriptable {
     // UNKNOWN is emitted only for previously known sites. No event is ever
     // misrepresented as FAR after teleport/load/detach/source failure.
     let i: Int32 = 0;
+    let invalidated = false;
     while i < ArraySize(this.m_watches) {
       let watch = this.m_watches[i];
       if watch.interestCount > 0 && watch.known {
         watch.known = false;
         watch.state = -1;
+        invalidated = true;
         this.Deliver(watch.owner, watch.index, -1);
       }
       i += 1;
+    }
+    if invalidated && IsDefined(this.m_dirty) {
+      this.m_dirty.Mark(n"LOCATION");
     }
     this.m_snapshotRequired = true;
   }
@@ -362,6 +367,11 @@ public class NativeLocationSignals extends IScriptable {
         if watch.interestCount > 0 && watch.owner == owner &&
            watch.anchor == anchor {
           this.SetState(watch, value);
+        }
+        if !this.m_ready || this.m_activeInterests <= 0 ||
+           !this.m_nativeSubscribed || !IsDefined(this.m_backend) {
+          // Last consumer may unsubscribe inside the event callback.
+          return;
         }
         i += 1;
       }
