@@ -6,7 +6,7 @@ A pass is only marked **Accepted** after compile, runtime, functional, and profi
 
 ## [Unreleased] — opt-in quest-fact pooled signals (CANDIDATE)
 
-**Status:** source/official SCC development candidate. No source consumer rewrites, source-admitted gameplay optimization, game load/regression testing or measured gains have been accepted.
+**Status:** [GCO Windows CI #622 SUCCESS](https://github.com/giorgioherma/Gs-Cyberpunk2077_Optimizations/actions/runs/44099363200) verifies 11 framework .reds sources in full private 2,319-file official SCC 0.5.31 with 22 prior generics, 7 mutation-backed fact observer source contracts, 101 managed tests and 323 GCO package checks. **Still only a candidate:** no existing mod integration, runtime/gameplay callback regression, save/reload testing, source-admitted production optimization or measured gains.
 
 - Added one `QuestFactSignals` class group under `Events/QuestFactSignals.reds`, held by the existing Runtime. With no interested consumers, **zero engine registrations and zero fact polling**.
 - `AcquireFact(CName)` returns an owned unique positive token or 0 on missing engine support; uses one additional `QuestsSystem.RegisterListener` per watched exact fact name. `ReleaseFact(token)` is idempotence-safe across consumers, unregisters on the last release and frees temporary listener/watch state.
