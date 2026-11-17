@@ -11,6 +11,7 @@ A pass is only marked **Accepted** after compile, runtime, functional, and profi
 - Added one `QuestFactSignals` class group under `Events/QuestFactSignals.reds`, held by the existing Runtime. With no interested consumers, **zero engine registrations and zero fact polling**.
 - `AcquireFact(CName)` returns an owned unique positive token or 0 on missing engine support; uses one additional `QuestsSystem.RegisterListener` per watched exact fact name. `ReleaseFact(token)` is idempotence-safe across consumers, unregisters on the last release and frees temporary listener/watch state.
 - Tracks per-fact callback version and UNKNOWN/observed last Int32 state, emits optional existing `EventBus` `QUEST_FACT/CHANGED` and `QUEST_FACT/SESSION_INVALIDATED` messages, and marks `DirtyFlags.QUEST_FACT` only for interested facts/session invalidation. No new timers, polls or engine hooks.
+- Refuses late callbacks from released listener bridges on re-acquired identical fact names; checks exact current bridge identity before changing the watched fact generation or publishing an event.
 - The system **does not replace original mod callback delivery** and is not a source rewrite or mod-name allowlist. Combined SCC is not proof of original callback return/ordering or gameplay equivalence.
 - GCO `dev/redscript/resolver_handoff` owns a separate read-only `scan-quest-facts` whole-source reader/writer/listener graph and the framework-owner mutation contracts. See `documentation/QUEST_FACT_SIGNAL_CONTRACT.md`.
 
