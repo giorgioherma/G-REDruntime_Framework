@@ -1,0 +1,21 @@
+name: G-REDruntime framework contracts
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'r6/scripts/G-RedRuntime/**'
+      - 'optional-native/**'
+      - 'tests/**'
+      - '.github/workflows/framework-contracts.yml'
+  workflow_dispatch:
+
+jobs:
+  native-location-source-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify shared native subscriber lifecycle and absence of hard native dependency
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
