@@ -5,6 +5,7 @@ public class Runtime extends ScriptableSystem {
   private let m_dirty: ref<DirtyFlags>;
   private let m_events: ref<EventBus>;
   private let m_factSignals: ref<QuestFactSignals>;
+  private let m_nativeLocations: ref<NativeLocationSignals>;
   private let m_input: ref<InputHub>;
   private let m_scheduler: ref<Scheduler>;
   private let m_context: ref<ContextService>;
@@ -38,6 +39,11 @@ public class Runtime extends ScriptableSystem {
     this.m_scheduler = new Scheduler();
     this.m_scheduler.Initialize(this, this.m_state, this.m_diagnostics);
 
+    // Optional native location subscriptions reuse this SAME scheduler.
+    // No native DLL/API is referenced by the core until an adapter subscribes.
+    this.m_nativeLocations = new NativeLocationSignals();
+    this.m_nativeLocations.Initialize(this.m_scheduler, this.m_dirty);
+
     this.m_input = new InputHub();
     this.m_input.Initialize(this.m_state, this.m_diagnostics, this.m_scheduler);
 
@@ -54,6 +60,9 @@ public class Runtime extends ScriptableSystem {
     // before shutting the scheduler down.
     if IsDefined(this.m_input) {
       this.m_input.Shutdown();
+    }
+    if IsDefined(this.m_nativeLocations) {
+      this.m_nativeLocations.Shutdown();
     }
     if IsDefined(this.m_scheduler) {
       this.m_scheduler.Shutdown();
@@ -88,6 +97,9 @@ public class Runtime extends ScriptableSystem {
 
     let player = playerSystem.GetLocalPlayerMainGameObject() as PlayerPuppet;
     this.m_state.SetPlayer(player);
+    if IsDefined(this.m_nativeLocations) {
+      this.m_nativeLocations.InvalidateSession();
+    }
     if IsDefined(this.m_factSignals) {
       this.m_factSignals.InvalidateSession();
     }
@@ -128,6 +140,9 @@ public class Runtime extends ScriptableSystem {
     }
 
     this.m_state.InvalidatePlayer();
+    if IsDefined(this.m_nativeLocations) {
+      this.m_nativeLocations.InvalidateSession();
+    }
     if IsDefined(this.m_factSignals) {
       this.m_factSignals.InvalidateSession();
     }
@@ -164,6 +179,7 @@ public class Runtime extends ScriptableSystem {
   public func GetDirtyFlags() -> ref<DirtyFlags> { return this.m_dirty; }
   public func GetEventBus() -> ref<EventBus> { return this.m_events; }
   public func GetQuestFactSignals() -> ref<QuestFactSignals> { return this.m_factSignals; }
+  public func GetNativeLocations() -> ref<NativeLocationSignals> { return this.m_nativeLocations; }
   public func GetInputHub() -> ref<InputHub> { return this.m_input; }
   public func GetScheduler() -> ref<Scheduler> { return this.m_scheduler; }
   public func GetContextService() -> ref<ContextService> { return this.m_context; }
