@@ -4,6 +4,7 @@ public class Runtime extends ScriptableSystem {
   private let m_state: ref<StateCache>;
   private let m_dirty: ref<DirtyFlags>;
   private let m_events: ref<EventBus>;
+  private let m_factSignals: ref<QuestFactSignals>;
   private let m_input: ref<InputHub>;
   private let m_scheduler: ref<Scheduler>;
   private let m_context: ref<ContextService>;
@@ -25,6 +26,11 @@ public class Runtime extends ScriptableSystem {
 
     this.m_events = new EventBus();
     this.m_events.Initialize(this.m_diagnostics);
+
+    // Quest fact observations are opt-in: no engine listeners or fact
+    // polling are registered until a source-approved consumer acquires one.
+    this.m_factSignals = new QuestFactSignals();
+    this.m_factSignals.Initialize(this.GetGameInstance(), this.m_dirty, this.m_events);
 
     // Scheduler is initialized before InputHub so low-frequency input-device
     // observation can use the shared deadline scheduler instead of a global
@@ -55,6 +61,10 @@ public class Runtime extends ScriptableSystem {
     if IsDefined(this.m_context) {
       this.m_context.Shutdown();
     }
+    if IsDefined(this.m_factSignals) {
+      // Release active quest fact listeners before the event bus and systems.
+      this.m_factSignals.Shutdown();
+    }
     if IsDefined(this.m_events) {
       this.m_events.Shutdown();
     }
@@ -78,6 +88,9 @@ public class Runtime extends ScriptableSystem {
 
     let player = playerSystem.GetLocalPlayerMainGameObject() as PlayerPuppet;
     this.m_state.SetPlayer(player);
+    if IsDefined(this.m_factSignals) {
+      this.m_factSignals.InvalidateSession();
+    }
     if IsDefined(this.m_context) {
       this.m_context.Invalidate();
     }
@@ -115,6 +128,9 @@ public class Runtime extends ScriptableSystem {
     }
 
     this.m_state.InvalidatePlayer();
+    if IsDefined(this.m_factSignals) {
+      this.m_factSignals.InvalidateSession();
+    }
     if IsDefined(this.m_context) {
       this.m_context.Invalidate();
     }
@@ -147,6 +163,7 @@ public class Runtime extends ScriptableSystem {
   public func GetStateCache() -> ref<StateCache> { return this.m_state; }
   public func GetDirtyFlags() -> ref<DirtyFlags> { return this.m_dirty; }
   public func GetEventBus() -> ref<EventBus> { return this.m_events; }
+  public func GetQuestFactSignals() -> ref<QuestFactSignals> { return this.m_factSignals; }
   public func GetInputHub() -> ref<InputHub> { return this.m_input; }
   public func GetScheduler() -> ref<Scheduler> { return this.m_scheduler; }
   public func GetContextService() -> ref<ContextService> { return this.m_context; }
