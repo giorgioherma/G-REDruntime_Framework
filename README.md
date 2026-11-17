@@ -73,6 +73,8 @@ On player attach, the runtime:
 5. marks the `PLAYER` dirty flag;
 6. publishes a `PLAYER / ATTACHED` runtime event when that topic has subscribers.
 
+On player detach, the same owner invalidates the cached player handle **before** releasing its existing input bridges, marks `PLAYER` dirty, and publishes `PLAYER / DETACHED` to subscribed listeners. It rejects a delayed detach belonging to a previously replaced player. The published player signal has an explicit **UNKNOWN** state and increments a runtime-local generation on attach/detach; no new polling runs. Source consumers may use `StateCache.HasAuthoritativePlayer()`, `GetAttachedPlayer()`, and `GetPlayerSignalGeneration()`, retaining their original getter whenever the signal is unknown. The [player lifecycle contract](documentation/PLAYER_STATE_SIGNAL_CONTRACT.md) defines invalidation, fallback, and remaining game-test gates.
+
 ## Accessing the runtime
 
 From code that already has a `GameInstance`:
@@ -163,9 +165,12 @@ Player-specific helpers:
 ```reds
 SetPlayer(player)
 InvalidatePlayer()
+HasAuthoritativePlayer()
+GetAttachedPlayer()
+GetPlayerSignalGeneration()
 ```
 
-`Runtime` manages the normal player-attach path for the framework.
+`Runtime` owns both attach and detach lifecycle transitions. The signal is **UNKNOWN** until an authoritative attach and again after detach; it must not substitute for changing combat, vehicle or position state. `GetPlayer()` retains the initial lazy fallback, while an explicit detach blocks stale player reacquisition until the next attach.
 
 ## Example
 
