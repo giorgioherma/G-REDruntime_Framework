@@ -75,6 +75,16 @@ On player attach, the runtime:
 
 On player detach, the same owner invalidates the cached player handle **before** releasing its existing input bridges, marks `PLAYER` dirty, and publishes `PLAYER / DETACHED` to subscribed listeners. It rejects a delayed detach belonging to a previously replaced player. The published player signal has an explicit **UNKNOWN** state and increments a runtime-local generation on attach/detach; no new polling runs. Source consumers may use `StateCache.HasAuthoritativePlayer()`, `GetAttachedPlayer()`, and `GetPlayerSignalGeneration()`, retaining their original getter whenever the signal is unknown. The [player lifecycle contract](documentation/PLAYER_STATE_SIGNAL_CONTRACT.md) defines invalidation, fallback, and remaining game-test gates.
 
+## Opt-in quest-fact signals (R5 development candidate)
+
+The source-owned `QuestFactSignals` service is created by the existing `Runtime` and remains **fully dormant** until a consumer explicitly calls `AcquireFact(fact: CName)`. It pools one `QuestsSystem.RegisterListener` per exact watched fact, returns a unique per-consumer interest token, emits an event only when an existing `EventBus` subscriber is interested, and advances a per-fact version on **every** callback. The last consumer calls `ReleaseFact(token)` to unregister and clear temporary references.
+
+`HasObservedValue(fact)` is false until an engine callback is seen and after a session invalidation; unknown always falls back to the original live `QuestsSystem.GetFact` in any source-approved adapter. Player attach/detach invalidates the service's known values and issues one `QUEST_FACT / SESSION_INVALIDATED` event after updating versions. The service does not use a timer, read facts automatically, or replace existing mod callbacks. No generic game-source optimization or measured runtime improvement is authorized by the new API alone.
+
+See [the opt-in quest fact signal contract](documentation/QUEST_FACT_SIGNAL_CONTRACT.md) for ownership, exact callback/register/release semantics, remaining game-test requirements and safe fallback.
+
+--- 
+
 ## Accessing the runtime
 
 From code that already has a `GameInstance`:
@@ -93,6 +103,7 @@ The runtime exposes:
 runtime.GetStateCache()
 runtime.GetDirtyFlags()
 runtime.GetEventBus()
+runtime.GetQuestFactSignals()
 runtime.GetInputHub()
 runtime.GetScheduler()
 runtime.GetContextService()
