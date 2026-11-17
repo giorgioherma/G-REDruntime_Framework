@@ -4,6 +4,13 @@ All notable G-REDruntime development passes are recorded here.
 
 A pass is only marked **Accepted** after compile, runtime, functional, and profiling review. Candidate builds do not automatically become the next base.
 
+## [Unreleased] — shared CET-native location subscriptions (EXPERIMENTAL)
+
+- `Runtime.GetNativeLocations()` manages per-mod native location subscriptions with a single shared `Scheduler` drain, an independent native consumer ID, source-owner/index routing, UNKNOWN invalidation on player changes, deduplicated watches and cleanup on last interest.
+- Main framework source contains no CET C++ RTTI declarations; a **single optional source file** is in `optional-native/` and must be supplied only alongside the CET Resolver's existing native DLL.
+- This change neither optimizes nor automatically subscribes any third-party mod. The GCO REDscript Resolver will generate the author-owned consumer registrations/cleanup separately.
+- Source contracts and Windows SCC integration remain development checkpoints. No game-test result, production ZIP or FPS claim. See `documentation/NATIVE_LOCATION_SIGNAL_CONTRACT.md`.
+
 ## [Unreleased] — opt-in quest-fact pooled signals (CANDIDATE)
 
 **Status:** [GCO Windows CI #622 SUCCESS](https://github.com/giorgioherma/Gs-Cyberpunk2077_Optimizations/actions/runs/44099363200) verifies 11 framework .reds sources in full private 2,319-file official SCC 0.5.31 with 22 prior generics, 7 mutation-backed fact observer source contracts, 101 managed tests and 323 GCO package checks. **Still only a candidate:** no existing mod integration, runtime/gameplay callback regression, save/reload testing, source-admitted production optimization or measured gains.
