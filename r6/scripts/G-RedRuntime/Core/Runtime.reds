@@ -102,7 +102,10 @@ public class Runtime extends ScriptableSystem {
       return;
     }
 
-    let leaving = request.owner as PlayerPuppet;
+    let leaving: ref<PlayerPuppet>;
+    if IsDefined(request) {
+      leaving = request.owner as PlayerPuppet;
+    }
     let attached = this.m_state.GetAttachedPlayer();
     if IsDefined(leaving) && IsDefined(attached) &&
        NotEquals(leaving.GetEntityID(), attached.GetEntityID()) {
