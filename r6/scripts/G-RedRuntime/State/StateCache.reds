@@ -290,3 +290,52 @@ public class StateCache extends IScriptable {
     }
   }
 }
+
+// Shared source-generated consumer entrypoints. The existing Runtime/StateCache
+// owns cache and player lifecycle; this class introduces no extra engine
+// listeners, timers, input registrations, or location/player observer.
+// Use only for exact source-proven substitutions. UNKNOWN player lifetime and
+// unavailable framework retain the original live engine getter.
+public abstract class SharedProviders {
+  public static func Player(game: GameInstance) -> ref<PlayerPuppet> {
+    let runtime = Runtime.Get(game);
+    if IsDefined(runtime) && runtime.IsReady() {
+      let state = runtime.GetStateCache();
+      if IsDefined(state) && state.HasAuthoritativePlayer() {
+        let player = state.GetAttachedPlayer();
+        if IsDefined(player) {
+          return player;
+        }
+      }
+    }
+    return GameInstance.GetPlayerSystem(game).GetLocalPlayerMainGameObject() as PlayerPuppet;
+  }
+
+  public static func Quests(game: GameInstance) -> ref<QuestsSystem> {
+    let runtime = Runtime.Get(game);
+    if IsDefined(runtime) && runtime.IsReady() {
+      let state = runtime.GetStateCache();
+      if IsDefined(state) {
+        let system = state.GetQuestsSystem();
+        if IsDefined(system) {
+          return system;
+        }
+      }
+    }
+    return GameInstance.GetQuestsSystem(game);
+  }
+
+  public static func Delay(game: GameInstance) -> ref<DelaySystem> {
+    let runtime = Runtime.Get(game);
+    if IsDefined(runtime) && runtime.IsReady() {
+      let state = runtime.GetStateCache();
+      if IsDefined(state) {
+        let system = state.GetDelaySystem();
+        if IsDefined(system) {
+          return system;
+        }
+      }
+    }
+    return GameInstance.GetDelaySystem(game);
+  }
+}
