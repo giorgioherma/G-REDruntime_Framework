@@ -447,6 +447,7 @@ public class NativeLocationSignals extends IScriptable {
     ArrayClear(this.m_interests);
     ArrayClear(this.m_watches);
     this.m_activeInterests = 0;
+    this.m_backend = null;
     this.m_dirty = null;
     this.m_scheduler = null;
   }
