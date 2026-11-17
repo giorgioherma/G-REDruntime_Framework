@@ -80,6 +80,8 @@ public class QuestFactSignals extends IScriptable {
       this.m_interests[j].active = false;
       j += 1;
     }
+    ArrayClear(this.m_interests);
+    ArrayClear(this.m_watches);
     this.m_dirty = null;
     this.m_events = null;
   }
@@ -101,18 +103,9 @@ public class QuestFactSignals extends IScriptable {
           watch.interestCount += 1;
           return this.AddInterest(fact);
         }
-        let bridge = new QuestFactBridge();
-        bridge.Initialize(this, fact);
-        let registration = qs.RegisterListener(fact, bridge, n"OnFactChanged");
-        if registration == 0u {
-          return 0;
-        }
-        watch.bridge = bridge;
-        watch.engineListenerID = registration;
-        watch.interestCount = 1;
-        watch.hasObservedValue = false;
-        watch.version += 1u;
-        return this.AddInterest(fact);
+        // Inconsistent/quiescing watch state fails closed. The sole
+        // engine registration path is below for genuinely new fact names.
+        return 0;
       }
       i += 1;
     }
@@ -153,10 +146,12 @@ public class QuestFactSignals extends IScriptable {
       let entry = this.m_interests[k];
       if entry.id == interestID && entry.active {
         entry.active = false;
+        let ownedFact = entry.fact;
+        ArrayErase(this.m_interests, k);
         let i: Int32 = 0;
         while i < ArraySize(this.m_watches) {
           let watch = this.m_watches[i];
-          if Equals(watch.fact, entry.fact) && watch.interestCount > 0 {
+          if Equals(watch.fact, ownedFact) && watch.interestCount > 0 {
             watch.interestCount -= 1;
             if watch.interestCount == 0 {
               let qs = GameInstance.GetQuestsSystem(this.m_game);
@@ -167,6 +162,7 @@ public class QuestFactSignals extends IScriptable {
               watch.bridge = null;
               watch.hasObservedValue = false;
               watch.version += 1u;
+              ArrayErase(this.m_watches, i);
             }
             return true;
           }
