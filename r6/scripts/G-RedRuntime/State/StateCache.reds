@@ -3,6 +3,12 @@ module GRedRuntime
 public class StateCache extends IScriptable {
   private let m_game: GameInstance;
   private let m_player: wref<PlayerPuppet>;
+  // Event-backed player lifetime: only OnPlayerAttach authorizes this handle
+  // across callbacks. An explicit detach blocks fallback rediscovery until
+  // the next attach. The generation changes at every lifecycle boundary.
+  private let m_playerSignalKnown: Bool;
+  private let m_playerDiscoveryBlocked: Bool;
+  private let m_playerSignalGeneration: Uint32;
   private let m_playerSystem: wref<PlayerSystem>;
   private let m_questsSystem: wref<QuestsSystem>;
   private let m_statsSystem: wref<StatsSystem>;
@@ -22,9 +28,15 @@ public class StateCache extends IScriptable {
   public func Initialize(game: GameInstance, diagnostics: ref<Diagnostics>) -> Void {
     this.m_game = game;
     this.m_diagnostics = diagnostics;
+    this.m_playerSignalKnown = false;
+    this.m_playerDiscoveryBlocked = false;
+    this.m_playerSignalGeneration = 0u;
   }
 
   public func Shutdown() -> Void {
+    this.m_playerSignalGeneration += 1u;
+    this.m_playerSignalKnown = false;
+    this.m_playerDiscoveryBlocked = true;
     this.m_player = null;
     this.m_playerSystem = null;
     this.m_questsSystem = null;
@@ -48,18 +60,52 @@ public class StateCache extends IScriptable {
 
   public func SetPlayer(player: wref<PlayerPuppet>) -> Void {
     this.m_player = player;
+    this.m_playerSignalKnown = IsDefined(player);
+    this.m_playerDiscoveryBlocked = false;
+    this.m_playerSignalGeneration += 1u;
   }
 
+  // Called only by authoritative lifecycle producer Runtime.OnPlayerDetach.
+  // Unknown means consumers must use their own original live getter.
   public func InvalidatePlayer() -> Void {
     this.m_player = null;
+    this.m_playerSignalKnown = false;
+    this.m_playerDiscoveryBlocked = true;
+    this.m_playerSignalGeneration += 1u;
+  }
+
+  public func HasAuthoritativePlayer() -> Bool {
+    return this.m_playerSignalKnown && IsDefined(this.m_player);
+  }
+
+  public func GetPlayerSignalGeneration() -> Uint32 {
+    return this.m_playerSignalGeneration;
+  }
+
+  // Unlike GetPlayer(), this never queries PlayerSystem. It is only suitable
+  // for lifecycle identity checks and source-proven shared-state consumers.
+  public func GetAttachedPlayer() -> wref<PlayerPuppet> {
+    if this.HasAuthoritativePlayer() {
+      return this.m_player;
+    }
+    return null;
   }
 
   public func GetPlayer() -> wref<PlayerPuppet> {
+    // Never return a detached player or silently adopt a new session's
+    // player before its authoritative OnPlayerAttach notification arrives.
+    if this.m_playerDiscoveryBlocked ||
+       (this.m_playerSignalKnown && !IsDefined(this.m_player)) {
+      return null;
+    }
     if IsDefined(this.m_player) {
       this.CacheHit();
       return this.m_player;
     }
 
+    // Preserve the existing pre-first-attach fallback. This does NOT
+    // establish a known event-backed signal; callers requiring source proof
+    // must consult HasAuthoritativePlayer() separately.
     this.CacheMiss();
     let playerSystem = this.GetPlayerSystem();
     if IsDefined(playerSystem) {
