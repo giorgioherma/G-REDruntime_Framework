@@ -249,13 +249,28 @@ public class QuestFactSignals extends IScriptable {
   // Listeners are not silently removed; only ReleaseFact owns cleanup.
   public func InvalidateSession() -> Void {
     let i: Int32 = 0;
+    let anyInterest = false;
     while i < ArraySize(this.m_watches) {
       let watch = this.m_watches[i];
       if watch.interestCount > 0 {
         watch.hasObservedValue = false;
         watch.version += 1u;
+        anyInterest = true;
       }
       i += 1;
+    }
+    if !anyInterest {
+      return;
+    }
+    if IsDefined(this.m_dirty) {
+      this.m_dirty.Mark(n"QUEST_FACT");
+    }
+    // Publish one general invalidation AFTER the watch traversal, so any
+    // subscriber that releases its interest cannot corrupt iteration.
+    if IsDefined(this.m_events) &&
+       this.m_events.HasSubscribersFor(n"QUEST_FACT") {
+      let evt = RuntimeEvent.Create(n"QUEST_FACT", n"SESSION_INVALIDATED");
+      this.m_events.Publish(evt);
     }
   }
 }
