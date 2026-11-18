@@ -89,7 +89,9 @@ def verify(runtime: str, signals: str, backend: str) -> None:
     assert "this.m_backend.AckSnapshot(this.m_consumer)" in read
     assert "this.m_snapshotRequired = true" in invalid
     assert "watch.state = -1" in invalid, "STALE_SESSION_VALUE"
-    assert "this.Deliver(watch.owner, watch.index, -1)" in invalid
+    assert "ArrayPush(owners, watch.owner)" in invalid, "INVALIDATION_TARGET_SNAPSHOT_MISSING"
+    assert "ArrayPush(indexes, watch.index)" in invalid, "INVALIDATION_TARGET_SNAPSHOT_MISSING"
+    assert "this.Deliver(owners[j], indexes[j], -1)" in invalid, "UNKNOWN_DELIVERY_MISSING"
     assert 'this.m_dirty.Mark(n"LOCATION")' in invalid
     assert "this.ResetNative()" in shutdown or "this.Stop()" in shutdown
     assert "entry.listener = null" in shutdown, "RETAINED_MOD_CALLBACK"
@@ -138,8 +140,8 @@ class FrameworkNativeLocationContracts(unittest.TestCase):
 
     def test_reject_unknown_state_as_far(self):
         broken = self.signals.replace(
-            "watch.state = -1;\n        invalidated = true;",
-            "watch.state = 0;\n        invalidated = true;")
+            "watch.state = -1;\n        ArrayPush(owners, watch.owner);",
+            "watch.state = 0;\n        ArrayPush(owners, watch.owner);")
         with self.assertRaisesRegex(AssertionError, "STALE_SESSION_VALUE"):
             verify(self.runtime, broken, self.backend)
 
