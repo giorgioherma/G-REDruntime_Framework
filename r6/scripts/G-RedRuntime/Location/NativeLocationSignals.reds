@@ -228,20 +228,28 @@ public class NativeLocationSignals extends IScriptable {
     this.ResetNative();
     // UNKNOWN is emitted only for previously known sites. No event is ever
     // misrepresented as FAR after teleport/load/detach/source failure.
+    // Snapshot affected targets before calling mod code: a callback can
+    // unsubscribe and compact m_watches, invalidating a live traversal.
+    let owners: array<Int32>;
+    let indexes: array<Int32>;
     let i: Int32 = 0;
-    let invalidated = false;
     while i < ArraySize(this.m_watches) {
       let watch = this.m_watches[i];
       if watch.interestCount > 0 && watch.known {
         watch.known = false;
         watch.state = -1;
-        invalidated = true;
-        this.Deliver(watch.owner, watch.index, -1);
+        ArrayPush(owners, watch.owner);
+        ArrayPush(indexes, watch.index);
       }
       i += 1;
     }
-    if invalidated && IsDefined(this.m_dirty) {
+    if ArraySize(owners) > 0 && IsDefined(this.m_dirty) {
       this.m_dirty.Mark(n"LOCATION");
+    }
+    let j: Int32 = 0;
+    while j < ArraySize(owners) {
+      this.Deliver(owners[j], indexes[j], -1);
+      j += 1;
     }
     this.m_snapshotRequired = true;
   }
@@ -356,6 +364,11 @@ public class NativeLocationSignals extends IScriptable {
         this.InvalidateSession();
         return;
       }
+    }
+    if !this.m_ready || this.m_activeInterests <= 0 ||
+       !this.m_nativeSubscribed || !IsDefined(this.m_backend) {
+      // A snapshot callback can release the last subscriber.
+      return;
     }
     let n: Int32 = 0;
     while n < 512 {
