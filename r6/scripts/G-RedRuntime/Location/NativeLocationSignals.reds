@@ -74,6 +74,8 @@ public class NativeLocationSignals extends IScriptable {
   private let m_ready: Bool;
   private let m_dispatchDepth: Int32;
   private let m_needsCompact: Bool;
+  private let m_deliveryCount: Int32;
+  private let m_snapshotCount: Int32;
 
   public func Initialize(scheduler: ref<Scheduler>, dirty: ref<DirtyFlags>) -> Void {
     this.m_scheduler = scheduler;
@@ -205,6 +207,10 @@ public class NativeLocationSignals extends IScriptable {
     return this.m_activeInterests > 0;
   }
 
+  public func GetActiveInterestCount() -> Int32 { return this.m_activeInterests; }
+  public func GetDeliveryCount() -> Int32 { return this.m_deliveryCount; }
+  public func GetSnapshotCount() -> Int32 { return this.m_snapshotCount; }
+
   public func State(owner: Int32, index: Int32) -> Int32 {
     let i: Int32 = 0;
     while i < ArraySize(this.m_watches) {
@@ -301,6 +307,7 @@ public class NativeLocationSignals extends IScriptable {
       if sub.active && sub.owner == owner && sub.index == index &&
          IsDefined(sub.listener) {
         sub.listener.OnGRedNativeLocation(owner, index, state);
+        this.m_deliveryCount += 1;
       }
       i += 1;
     }
@@ -419,6 +426,7 @@ public class NativeLocationSignals extends IScriptable {
       return false;
     }
     this.m_snapshotRequired = false;
+    this.m_snapshotCount += 1;
     let j: Int32 = 0;
     while j < ArraySize(this.m_watches) {
       let watch = this.m_watches[j];
