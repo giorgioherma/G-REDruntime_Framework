@@ -393,20 +393,20 @@ public class NativeLocationSignals extends IScriptable {
         if anchor <= 0 {
           return false;
         }
-        let value = this.m_backend.AnchorState(anchor);
-        if value != 0 && value != 1 {
-          return false;
-        }
         watch.anchor = anchor;
-        watch.pendingState = value;
         if watch.owner >= 100000000 && !watch.armedByUs {
-          // Source-derived REDscript owners use a reserved namespace.
-          // Never disarm CET's original owners as a REDscript side effect.
+          // Compiled sites may be dormant until armed. Arm before reading
+          // their initial state, as in CET's attachCompiled() owner.
           if !this.m_backend.Arm(anchor, true) {
             return false;
           }
           watch.armedByUs = true;
         }
+        let value = this.m_backend.AnchorState(anchor);
+        if value != 0 && value != 1 {
+          return false;
+        }
+        watch.pendingState = value;
       }
       i += 1;
     }
