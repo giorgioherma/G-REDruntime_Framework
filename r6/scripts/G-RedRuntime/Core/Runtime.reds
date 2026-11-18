@@ -201,5 +201,8 @@ public class Runtime extends ScriptableSystem {
     LogChannel(n"G-RedRuntime", s"input seen=\(snap.inputEventsSeen) deliveries=\(snap.inputDeliveries)");
     LogChannel(n"G-RedRuntime", s"hooks dispatches=\(snap.hookDispatches) deliveries=\(snap.hookDeliveries)");
     LogChannel(n"G-RedRuntime", s"state cache hits=\(snap.stateCacheHits) misses=\(snap.stateCacheMisses)");
+    if IsDefined(this.m_nativeLocations) {
+      LogChannel(n"G-RedRuntime", s"native location subscribers=\(this.m_nativeLocations.GetActiveInterestCount()) snapshots=\(this.m_nativeLocations.GetSnapshotCount()) deliveries=\(this.m_nativeLocations.GetDeliveryCount())");
+    }
   }
 }
