@@ -98,6 +98,11 @@ public class NativeLocationSignals extends IScriptable {
        expectedCount > 100000 || index >= expectedCount {
       return 0;
     }
+    // A missing/unready native owner must not create a permanent 10 Hz
+    // fallback timer. The original mod polling remains authoritative.
+    if !IsDefined(this.m_backend) && !backend.IsReady() {
+      return 0;
+    }
     // First adapter supplies the backend; subsequent mods reuse it rather
     // than creating another native stream or requiring object identity.
     if !IsDefined(this.m_backend) {
