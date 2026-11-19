@@ -69,6 +69,26 @@ public abstract class GCETNativePlayerVector {
   }
 }
 
+// Generic fixed-location check; only the existing NativeLocationSignals
+// service owns a single native event drain. Player identity is checked at
+// the point of use because many mod helpers accept arbitrary GameObjects.
+public abstract class GCETNativeLocationGuard {
+  public static func DefinitelyFarPlayer(player: ref<GameObject>,
+                                          owner: Int32,
+                                          expected: Int32) -> Bool {
+    if !IsDefined(player) { return false; }
+    let game = GetGameInstance();
+    let local = GetPlayer(game);
+    if !IsDefined(local) || player != local { return false; }
+    let runtime = Runtime.Get(game);
+    if !IsDefined(runtime) || !runtime.IsReady() { return false; }
+    let service = runtime.GetNativeLocations();
+    if !IsDefined(service) { return false; }
+    return service.AllLocationGroupFar(
+      owner, expected, new GCETNativeLocationBackend());
+  }
+}
+
 // This is an adapter, not a second native observer. One G-REDruntime service
 // consumes the existing C++ ring buffer and publishes only to subscribed mods.
 public class GCETNativeLocationBackend extends NativeLocationBackend {

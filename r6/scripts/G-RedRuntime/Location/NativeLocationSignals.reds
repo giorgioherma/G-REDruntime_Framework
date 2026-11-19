@@ -48,6 +48,45 @@ public class NativeLocationWatch extends IScriptable {
   public let armedByUs: Bool;
 }
 
+// Generic, callback-independent location cohort. Many source-defined
+// position arrays can share ONE native stream without registering a mod-owned
+// scheduler, listener or cleanup hook.
+public class NativeLocationGroupListener extends NativeLocationListener {
+  private let m_owner: Int32;
+  private let m_expected: Int32;
+  private let m_farCount: Int32;
+  private let m_states: array<Int32>;
+  public func Initialize(owner: Int32, expected: Int32) -> Void {
+    this.m_owner = owner;
+    this.m_expected = expected;
+    this.m_farCount = 0;
+    ArrayResize(this.m_states, expected);
+    let i: Int32 = 0;
+    while i < expected {
+      this.m_states[i] = -1;
+      i += 1;
+    }
+  }
+  public func OnGRedNativeLocation(owner: Int32, index: Int32,
+                                   state: Int32) -> Void {
+    if owner != this.m_owner || index < 0 ||
+       index >= this.m_expected { return; }
+    if this.m_states[index] == 0 { this.m_farCount -= 1; }
+    this.m_states[index] = state;
+    if state == 0 { this.m_farCount += 1; }
+  }
+  public func AllFar() -> Bool {
+    return this.m_expected > 0 && this.m_farCount == this.m_expected;
+  }
+}
+
+public class NativeLocationGroup extends IScriptable {
+  public let owner: Int32;
+  public let expected: Int32;
+  public let listener: ref<NativeLocationGroupListener>;
+  public let tokens: array<Int32>;
+}
+
 public class NativeLocationPollJob extends ScheduledJob {
   public let service: wref<NativeLocationSignals>;
   public func Execute(runtime: ref<Runtime>) -> Void {
@@ -65,6 +104,7 @@ public class NativeLocationSignals extends IScriptable {
   private let m_dirty: wref<DirtyFlags>;
   private let m_interests: array<ref<NativeLocationInterest>>;
   private let m_watches: array<ref<NativeLocationWatch>>;
+  private let m_groups: array<ref<NativeLocationGroup>>;
   private let m_nextInterest: Int32;
   private let m_activeInterests: Int32;
   private let m_job: ref<NativeLocationPollJob>;
@@ -200,6 +240,43 @@ public class NativeLocationSignals extends IScriptable {
       }
       i += 1;
     }
+    return false;
+  }
+
+  // Lazy opt-in for source-proven static location groups. A source-generated
+  // regular method can ask whether ALL fixed sites are FAR without taking
+  // ownership of timers, listeners or mod-specific lifecycle hooks.
+  // First request remains UNKNOWN and executes original author logic.
+  public func AllLocationGroupFar(owner: Int32, expected: Int32,
+                                  backend: ref<NativeLocationBackend>) -> Bool {
+    if !this.m_ready || owner < 100000000 || expected <= 0 ||
+       expected > 256 { return false; }
+    for group in this.m_groups {
+      if group.owner == owner {
+        if group.expected != expected || !this.m_nativeSubscribed ||
+           this.m_snapshotRequired { return false; }
+        return IsDefined(group.listener) && group.listener.AllFar();
+      }
+    }
+    if !IsDefined(backend) || !backend.IsReady() ||
+       backend.OwnerCount(owner) != expected { return false; }
+    let group = new NativeLocationGroup();
+    group.owner = owner;
+    group.expected = expected;
+    group.listener = new NativeLocationGroupListener();
+    group.listener.Initialize(owner, expected);
+    let i: Int32 = 0;
+    while i < expected {
+      let token = this.SubscribeLocation(owner, i, expected,
+                                         group.listener, backend);
+      if token <= 0 {
+        for prior in group.tokens { this.UnsubscribeLocation(prior); }
+        return false;
+      }
+      ArrayPush(group.tokens, token);
+      i += 1;
+    }
+    ArrayPush(this.m_groups, group);
     return false;
   }
 
@@ -472,6 +549,7 @@ public class NativeLocationSignals extends IScriptable {
     }
     ArrayClear(this.m_interests);
     ArrayClear(this.m_watches);
+    ArrayClear(this.m_groups);
     this.m_activeInterests = 0;
     this.m_backend = null;
     this.m_dirty = null;

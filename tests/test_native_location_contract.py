@@ -137,6 +137,27 @@ def verify(runtime: str, signals: str, backend: str) -> None:
     assert "GCETPlayerVector4Live" not in runtime + signals, (
         "OPTIONAL_VECTOR_NATIVE_DEPENDENCY_LEAKS_INTO_CORE")
 
+    # Source-driven location cohorts must reuse the SAME shared service,
+    # native stream and lifecycle rather than creating mod-owned timers.
+    assert "public class NativeLocationGroupListener" in signals
+    assert "public func AllLocationGroupFar(" in signals
+    group = body(signals, "AllLocationGroupFar")
+    assert "this.SubscribeLocation(owner, i, expected," in group
+    assert "this.m_nativeSubscribed" in group
+    assert "this.m_snapshotRequired" in group
+    assert "group.listener.AllFar()" in group
+    assert "backend.OwnerCount(owner) != expected" in group
+    assert "for prior in group.tokens { this.UnsubscribeLocation(prior); }" in group
+    assert "ArrayClear(this.m_groups);" in shutdown
+    assert "public abstract class GCETNativeLocationGuard" in backend
+    gate = body(backend, "DefinitelyFarPlayer")
+    assert "player != local" in gate
+    assert "service.AllLocationGroupFar(" in gate
+    assert "GetPlayer(game)" in gate
+    assert "Schedule" not in gate
+    assert "GCETStatic" not in gate
+    assert "GameInstance.GCETStatic" not in signals
+
 
 class FrameworkNativeLocationContracts(unittest.TestCase):
     @classmethod
@@ -183,6 +204,13 @@ class FrameworkNativeLocationContracts(unittest.TestCase):
             "native func WrongPolledState")
         with self.assertRaisesRegex(AssertionError, "MISSING_CPP_ABI"):
             verify(self.runtime, self.signals, broken)
+
+    def test_reject_unverified_group_far(self):
+        broken = self.signals.replace(
+            "this.m_snapshotRequired { return false; }",
+            "false { return false; }", 1)
+        with self.assertRaisesRegex(AssertionError, ".*"):
+            verify(self.runtime, broken, self.backend)
 
     def test_reject_missing_strict_live_vector_validation(self):
         broken = self.backend.replace(
