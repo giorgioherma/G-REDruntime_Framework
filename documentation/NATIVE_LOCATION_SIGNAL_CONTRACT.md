@@ -1,5 +1,15 @@
 # G-REDruntime native player/location subscription contract
 
+## 2026-11-19 — existing CET strict-live player Vector4 adapter completed
+
+- **Framework owner:** `optional-native/r6/scripts/G-RedRuntime/Native/GCETNativeLocationBackend.reds` now declares the **existing C++ DLL's** `GameInstance.GCETPlayerVector4Live() -> Vector4` and `GameInstance.GCETPlayerVector4Valid() -> Bool` native methods alongside the original location methods. No second player observer, native binary, independent timer, or new core framework dependency was introduced.
+- **Typed REDscript call:** `GCETNativePlayerVector.LiveOrOriginal(player: ref<PlayerPuppet>) -> Vector4` calls the strict-live vector getter and reads the immediately associated validity before using its result; invalid native readings run the original `player.GetWorldPosition()`. Null receivers also take the original expression path. It uses neither the unproven frame-keyed `GCETPlayerVector4()` snapshot nor any cached vector.
+- **Admission:** this helper must be used **only** for source-proven local-player receivers. A typed `PlayerPuppet` argument is insufficient on its own; NPC, vehicle, aliases with unresolved caller identity and stored historical positions are not authorized. A native on-demand read is not automatically faster than the author getter and does not authorize removing callbacks or changing timing.
+- **Staging:** GCO requires the exact framework-owned optional adapter and CET owner DLL together; native-capability and bridge-shape validation happens before any native output. Core `StateCache` and `NativeLocationSignals` stay independent of optional symbols.
+- **Verification:** [G-REDruntime #10 SUCCESS](https://github.com/giorgioherma/G-REDruntime_Framework/actions/runs/44599499137) verifies source contracts including negative failures for missing validity and original fallback. Official full-stack SCC and gameplay/runtime ABI parity remain separate acceptance gates, not claimed by this framework-only CI.
+
+
+
 **Owner:** `G-REDruntime_Framework/main`. **2026-11-18:** experimental source integration, no gameplay validation. Native C++ authority remains CET's `GCETStaticLocations.dll`; GCO REDscript Resolver generates mod consumers and dispatches the single DLL/manifest pair. The framework **does not** contain or rebuild C++.
 
 ## Two source surfaces
