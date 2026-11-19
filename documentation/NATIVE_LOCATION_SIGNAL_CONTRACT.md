@@ -1,5 +1,16 @@
 # G-REDruntime native player/location subscription contract
 
+## 2026-11-19 — generic location cohorts without per-mod lifecycle
+
+**Source-owner implementation:** `r6/scripts/G-RedRuntime/Location/NativeLocationSignals.reds` now owns `NativeLocationGroupListener`, `NativeLocationGroup`, `AllLocationGroupFar(owner, expectedCount, backend)` and `HasLocationGroup(owner, expectedCount)`. The first call lazily registers all source-compiled owner anchors through the **existing** `SubscribeLocation` API. Their generated mod consumer does not register a new scheduler job or require a `ScriptableSystem` Start/Stop method; one framework-owned job drains the same C++ stream. Each group listener tracks known FAR counts, and only **all sites FAR** yields a negative result. UNKNOWN, no/invalid native data, an incomplete group, a missing player and source-mapping mismatches run original author code. Session invalidation invalidates the group observations; Runtime shutdown clears all group listeners/tokens.
+
+**Optional bridge:** `GCETNativeLocationGuard.DefinitelyFarPlayer(player, owner, expectedCount)` in the existing optional CET-native backend verifies the supplied GameObject matches the current local player and delegates to the service. A previously registered group uses the service without allocating another `GCETNativeLocationBackend`; the backend is created only during first registration. Neither core nor standalone REDscript requires CET native symbols.
+
+**Experiment scope:** GCO's same source-owned `GenericNativeLocationSubscriberPass` recognizes (1) literal Vector4 arrays tested through a source-defined near helper and (2) strict local-player comparisons against source-defined constant Vector4 factories. The native coordinate inventory comes from the same parser as generation. Group-array FAR bypasses repeated array construction and distance searches. Quest FAR becomes an additional Boolean short-circuit operand in the **original distance comparison**, preserving unrelated quest facts and callback state. The generator admits source range <=128m for 256m native array anchors; fixed quest thresholds use original radius plus 32m. These margins mitigate but do not eliminate stale FAR risk after teleport/rapid movement. Dynamic sites, NPC/vehicle positions, arbitrary callback suppression and global vector caching are not authorized.
+
+**Evidence:** framework source contracts [#11 SUCCESS](https://github.com/giorgioherma/G-REDruntime_Framework/actions/runs/44611667162), [#12 SUCCESS](https://github.com/giorgioherma/G-REDruntime_Framework/actions/runs/44614674499). REDscript official SCC and game validation are separate GCO checks. No profiler rebuilt, no gameplay optimization ZIP, no measured gains.
+
+
 ## 2026-11-19 — existing CET strict-live player Vector4 adapter completed
 
 - **Framework owner:** `optional-native/r6/scripts/G-RedRuntime/Native/GCETNativeLocationBackend.reds` now declares the **existing C++ DLL's** `GameInstance.GCETPlayerVector4Live() -> Vector4` and `GameInstance.GCETPlayerVector4Valid() -> Bool` native methods alongside the original location methods. No second player observer, native binary, independent timer, or new core framework dependency was introduced.
