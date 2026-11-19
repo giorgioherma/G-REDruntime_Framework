@@ -112,6 +112,30 @@ def verify(runtime: str, signals: str, backend: str) -> None:
     assert "extends NativeLocationBackend" in backend
     assert "GCETStaticSubscribe(consumer, 0)" in backend
 
+    # Same CET C++ DLL also exposes typed STRICT-LIVE Vector4. Do not
+    # accidentally bind the frame-keyed cached snapshot or invent polling.
+    assert re.search(
+        r"native func GCETPlayerVector4Live\(\) -> Vector4", backend
+    ), "LIVE_VECTOR_RTTI_SIGNATURE_MISSING"
+    assert re.search(
+        r"native func GCETPlayerVector4Valid\(\) -> Bool", backend
+    ), "LIVE_VECTOR_VALIDITY_RTTI_SIGNATURE_MISSING"
+    assert "native func GCETPlayerVector4()" not in backend, (
+        "UNPROVEN_FRAME_CACHED_VECTOR_ADOPTED")
+    native_vector = body(backend, "LiveOrOriginal")
+    assert "if !IsDefined(player)" in native_vector, (
+        "NULL_RECEIVER_ORIGINAL_SEMANTICS_LOST")
+    assert native_vector.count("return player.GetWorldPosition();") == 2, (
+        "ORIGINAL_PLAYER_GETTER_FALLBACK_LOST")
+    assert native_vector.index("GameInstance.GCETPlayerVector4Live()") < (
+        native_vector.index("GameInstance.GCETPlayerVector4Valid()") <
+        native_vector.index("return position;")), (
+        "LIVE_VECTOR_VALIDATION_ORDER")
+    assert not re.search(r"\b(?:GCETPlayerVector4\s*\(|Schedule\.|Tick\s*\()", native_vector), (
+        "LIVE_VECTOR_EXTRA_SNAPSHOT_OR_POLLER")
+    assert "GCETPlayerVector4Live" not in runtime + signals, (
+        "OPTIONAL_VECTOR_NATIVE_DEPENDENCY_LEAKS_INTO_CORE")
+
 
 class FrameworkNativeLocationContracts(unittest.TestCase):
     @classmethod
@@ -157,6 +181,27 @@ class FrameworkNativeLocationContracts(unittest.TestCase):
             "native func GCETStaticPolledState",
             "native func WrongPolledState")
         with self.assertRaisesRegex(AssertionError, "MISSING_CPP_ABI"):
+            verify(self.runtime, self.signals, broken)
+
+    def test_reject_missing_strict_live_vector_validation(self):
+        broken = self.backend.replace(
+            "if GameInstance.GCETPlayerVector4Valid() {",
+            "if true {")
+        with self.assertRaisesRegex(AssertionError, "LIVE_VECTOR_VALIDATION_ORDER"):
+            verify(self.runtime, self.signals, broken)
+
+    def test_reject_snapshot_cache_instead_of_live_getter(self):
+        broken = self.backend.replace(
+            "GameInstance.GCETPlayerVector4Live();",
+            "GameInstance.GCETPlayerVector4();")
+        with self.assertRaisesRegex(AssertionError, "LIVE_VECTOR_VALIDATION_ORDER"):
+            verify(self.runtime, self.signals, broken)
+
+    def test_reject_lost_player_getter_fallback(self):
+        broken = self.backend.replace(
+            "return player.GetWorldPosition();",
+            "return position;", 1)
+        with self.assertRaisesRegex(AssertionError, "ORIGINAL_PLAYER_GETTER_FALLBACK_LOST"):
             verify(self.runtime, self.signals, broken)
 
 

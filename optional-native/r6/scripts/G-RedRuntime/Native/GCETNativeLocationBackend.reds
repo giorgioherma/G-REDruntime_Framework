@@ -43,6 +43,32 @@ public static native func GCETStaticPolledOwner(consumer: Int32) -> Int32
 @addMethod(GameInstance)
 public static native func GCETStaticPolledState(consumer: Int32) -> Int32
 
+// CET-owned existing strict-live typed Vector4 API. These are declarations
+// of the SAME native DLL, not another native player observer. The frame-keyed
+// GCETPlayerVector4() cache is intentionally not declared/adopted here.
+@addMethod(GameInstance)
+public static native func GCETPlayerVector4Live() -> Vector4
+
+@addMethod(GameInstance)
+public static native func GCETPlayerVector4Valid() -> Bool
+
+// Only a source-proven *local player* receiver may use this helper. Keep
+// the exact supplied receiver for fallback; do not substitute a stale player
+// handle or assume that all PlayerPuppet instances are the local player.
+// The validity read MUST immediately follow the strict-live native call.
+public abstract class GCETNativePlayerVector {
+  public static func LiveOrOriginal(player: ref<PlayerPuppet>) -> Vector4 {
+    if !IsDefined(player) {
+      return player.GetWorldPosition();
+    }
+    let position: Vector4 = GameInstance.GCETPlayerVector4Live();
+    if GameInstance.GCETPlayerVector4Valid() {
+      return position;
+    }
+    return player.GetWorldPosition();
+  }
+}
+
 // This is an adapter, not a second native observer. One G-REDruntime service
 // consumes the existing C++ ring buffer and publishes only to subscribed mods.
 public class GCETNativeLocationBackend extends NativeLocationBackend {
