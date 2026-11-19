@@ -127,9 +127,10 @@ def verify(runtime: str, signals: str, backend: str) -> None:
         "NULL_RECEIVER_ORIGINAL_SEMANTICS_LOST")
     assert native_vector.count("return player.GetWorldPosition();") == 2, (
         "ORIGINAL_PLAYER_GETTER_FALLBACK_LOST")
-    assert native_vector.index("GameInstance.GCETPlayerVector4Live()") < (
-        native_vector.index("GameInstance.GCETPlayerVector4Valid()") <
-        native_vector.index("return position;")), (
+    live_at = native_vector.find("GameInstance.GCETPlayerVector4Live()")
+    valid_at = native_vector.find("GameInstance.GCETPlayerVector4Valid()")
+    return_at = native_vector.find("return position;")
+    assert 0 <= live_at < valid_at < return_at, (
         "LIVE_VECTOR_VALIDATION_ORDER")
     assert not re.search(r"\b(?:GCETPlayerVector4\s*\(|Schedule\.|Tick\s*\()", native_vector), (
         "LIVE_VECTOR_EXTRA_SNAPSHOT_OR_POLLER")
