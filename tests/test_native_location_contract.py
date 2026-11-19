@@ -153,6 +153,10 @@ def verify(runtime: str, signals: str, backend: str) -> None:
     gate = body(backend, "DefinitelyFarPlayer")
     assert "player != local" in gate
     assert "service.AllLocationGroupFar(" in gate
+    assert "service.HasLocationGroup(owner, expected)" in gate
+    assert "owner, expected, null" in gate
+    assert gate.index("service.HasLocationGroup(") < (
+        gate.index("new GCETNativeLocationBackend()"))
     assert "GetPlayer(game)" in gate
     assert "Schedule" not in gate
     assert "GCETStatic" not in gate

@@ -84,6 +84,9 @@ public abstract class GCETNativeLocationGuard {
     if !IsDefined(runtime) || !runtime.IsReady() { return false; }
     let service = runtime.GetNativeLocations();
     if !IsDefined(service) { return false; }
+    if service.HasLocationGroup(owner, expected) {
+      return service.AllLocationGroupFar(owner, expected, null);
+    }
     return service.AllLocationGroupFar(
       owner, expected, new GCETNativeLocationBackend());
   }

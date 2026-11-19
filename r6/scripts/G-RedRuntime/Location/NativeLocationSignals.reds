@@ -243,6 +243,17 @@ public class NativeLocationSignals extends IScriptable {
     return false;
   }
 
+  // No per-call backend allocation once the first native group listener has
+  // been registered. All hot queries share the existing service state.
+  public func HasLocationGroup(owner: Int32, expected: Int32) -> Bool {
+    for group in this.m_groups {
+      if group.owner == owner && group.expected == expected {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Lazy opt-in for source-proven static location groups. A source-generated
   // regular method can ask whether ALL fixed sites are FAR without taking
   // ownership of timers, listeners or mod-specific lifecycle hooks.
