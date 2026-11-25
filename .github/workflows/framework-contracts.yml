@@ -6,6 +6,7 @@ on:
       - 'r6/scripts/G-RedRuntime/**'
       - 'optional-native/**'
       - 'tests/**'
+      - 'release-request.json'
       - '.github/workflows/framework-contracts.yml'
   workflow_dispatch:
 
@@ -45,3 +46,47 @@ jobs:
           path: release-stage/
           if-no-files-found: error
           retention-days: 90
+  promote-verified-release:
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish verified G-REDruntime ')
+    needs: native-location-source-contracts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Promote exact green CI archive to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(jq -er '.version' release-request.json)
+          run=$(jq -er '.runId' release-request.json)
+          sha=$(jq -er '.commit' release-request.json)
+          artifact=$(jq -er '.artifactId' release-request.json)
+          digest=$(jq -er '.sha256' release-request.json)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$run" =~ ^[0-9]+$ && "$artifact" =~ ^[0-9]+$ && "$sha" =~ ^[a-f0-9]{40}$ && "$digest" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$(jq -r '.version' documentation/G-RedRuntime_MANIFEST.json)" == "$version" ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" | jq -e --arg sha "$sha" '.head_sha == $sha and .head_branch == "main" and .conclusion == "success" and .path == ".github/workflows/framework-contracts.yml"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact" | jq -e --arg sha "$sha" --arg name "G-REDruntime-v$version" --arg digest "sha256:$digest" --argjson run "$run" '.name == $name and .expired == false and .digest == $digest and .workflow_run.id == $run and .workflow_run.head_sha == $sha' >/dev/null
+          # Do not overwrite an existing tag/release or promote a moving HEAD.
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "Release v$version already exists; refusing replacement" >&2
+            exit 1
+          fi
+          archive="G-REDruntime-v$version.zip"
+          curl --fail --silent --show-error --location -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact/zip" -o "$archive"
+          printf '%s  %s\n' "$digest" "$archive" | sha256sum -c -
+          python - "$archive" "$version" <<'PY'
+          import pathlib, sys, zipfile
+          archive, version = sys.argv[1:]
+          with zipfile.ZipFile(archive) as z:
+              files = [n for n in z.namelist() if not n.endswith('/')]
+              assert files and len(files) == len(set(files))
+              assert all(n.startswith('r6/scripts/G-RedRuntime/') and n.endswith('.reds') and '..' not in pathlib.PurePosixPath(n).parts for n in files)
+              assert f'return "{version}";' in z.read('r6/scripts/G-RedRuntime/Core/Runtime.reds').decode()
+              assert z.testzip() is None
+          PY
+          notes=$(jq -er '.notes' release-request.json)
+          gh release create "v$version" "$archive" --target "$sha" --title "G-REDruntime v$version" --notes "$notes"

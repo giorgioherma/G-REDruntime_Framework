@@ -1,0 +1,8 @@
+{
+  "version": "0.6.1",
+  "runId": 45537122020,
+  "commit": "796ab660dc1b1c395662fc13ee618496a41f89f7",
+  "artifactId": 14986699895,
+  "sha256": "2ce15bdcc3140958990d66cbdca4fec016b227701f1d56fc4405abf81a2c0b0a",
+  "notes": "Standalone compatibility update. Removes the implicit logging-header and Codeware convenience-method dependencies. Manual diagnostics return a string; runtime services and caching remain unchanged.\n\nGCO CI #1148 verified the 12 framework sources with official SCC 0.5.31, vanilla script cache and zero external script providers. Framework CI #15 verified the versioned source and produced this exact archive. Gameplay validation remains pending.\n\nInstall the game-relative ZIP as a separate mod. Requires REDscript; no Codeware dependency. Optional native backend is not included."
+}
