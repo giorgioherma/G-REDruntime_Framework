@@ -7,6 +7,7 @@ A pass is only marked **Accepted** after compile, runtime, functional, and profi
 ## [Unreleased] — standalone diagnostics compatibility
 
 - Remove the accidental global logging-header dependency in both manual diagnostic entry points. Return the same diagnostic information as a String for caller-owned output; no new native declarations, logging mod, or gameplay changes.
+- Standalone SCC #1147 revealed a second dependency: Codeware's GameInstance.GetSystemRequestsHandler convenience extension. Use its underlying vanilla inkMenuScenario getter directly, preserving the cached handle and public API.
 - MO2 small-profile compiler failure exposed the dependency hidden by the large source stack. Standalone vanilla SCC and combined-stack verification remain pending.
 
 ## [Unreleased] — shared CET-native location subscriptions (EXPERIMENTAL)

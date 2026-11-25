@@ -19,3 +19,8 @@ class StandaloneDiagnostics(unittest.TestCase):
         self.assertIn("return report;", core)
         self.assertIn("return runtime.DumpDiagnostics();", player)
         self.assertIn('return "G-RedRuntime is not available";', player)
+
+    def test_system_requests_handler_uses_vanilla_resolution(self):
+        source = (ROOT / "State/StateCache.reds").read_text()
+        self.assertNotIn("GameInstance.GetSystemRequestsHandler(", source)
+        self.assertIn("this.m_systemRequestsHandler = new inkMenuScenario().GetSystemRequestsHandler();", source)

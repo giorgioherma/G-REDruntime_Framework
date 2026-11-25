@@ -260,7 +260,9 @@ public class StateCache extends IScriptable {
     }
 
     this.CacheMiss();
-    this.m_systemRequestsHandler = GameInstance.GetSystemRequestsHandler();
+    // Resolve through the vanilla ink menu scenario, not Codeware's
+    // optional GameInstance convenience extension. Same handler identity.
+    this.m_systemRequestsHandler = new inkMenuScenario().GetSystemRequestsHandler();
     return this.m_systemRequestsHandler;
   }
 
