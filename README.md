@@ -1,6 +1,6 @@
 # G-REDruntime Developer Blueprint
 
-This document describes the public architecture and intended integration model of G-REDruntime `0.6.1`.
+This document describes the public architecture and intended integration model of G-REDruntime `0.6.2`.
 
 It is written for REDscript mod developers and integration authors. The goal is not only to list methods, but to explain what each service owns, when it is appropriate, what assumptions it makes, and how to integrate it without changing the identity or behavior of the mod being optimized.
 
@@ -126,7 +126,7 @@ runtime.GetVersion()
 Current source version:
 
 ```text
-0.6.1
+0.6.2
 ```
 
 Do not cache the `Runtime` across a lifetime where the game/system container itself may be torn down and recreated unless your integration already has a lifecycle that guarantees the reference remains valid.

@@ -4,6 +4,11 @@ All notable G-REDruntime development passes are recorded here.
 
 A pass is only marked **Accepted** after compile, runtime, functional, and profiling review. Candidate builds do not automatically become the next base.
 
+## [0.6.2] — version-only update (2026-11-25)
+
+- No functional changes from v0.6.1. Retains the standalone runtime compatibility fixes and REDscript-only dependency.
+- Framework packaging and source checks rerun for the new version.
+
 ## [0.6.1] — standalone runtime compatibility (2026-11-25)
 
 - Remove the accidental global logging-header dependency in both manual diagnostic entry points. Return the same diagnostic information as a String for caller-owned output; no new native declarations, logging mod, or gameplay changes.
