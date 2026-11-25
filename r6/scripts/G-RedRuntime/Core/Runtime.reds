@@ -172,7 +172,7 @@ public class Runtime extends ScriptableSystem {
   }
 
   public func GetVersion() -> String {
-    return "0.6.0-pass6";
+    return "0.6.1";
   }
 
   public func GetStateCache() -> ref<StateCache> { return this.m_state; }

@@ -1,6 +1,6 @@
 {
   "name": "G-RedRuntime",
-  "version": "0.6.0-pass6",
+  "version": "0.6.1",
   "type": "REDscript shared optimization framework",
   "install_path": "r6/scripts/G-RedRuntime",
   "persistent_save_data": false,

@@ -19,3 +19,29 @@ jobs:
           python-version: '3.12'
       - name: Verify shared native subscriber lifecycle and absence of hard native dependency
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Package versioned standalone runtime
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, shutil
+          manifest = json.loads(pathlib.Path('documentation/G-RedRuntime_MANIFEST.json').read_text())
+          version = manifest['version']
+          assert re.fullmatch(r'\d+\.\d+\.\d+', version), version
+          core = pathlib.Path('r6/scripts/G-RedRuntime')
+          assert f'return "{version}";' in (core / 'Core/Runtime.reds').read_text()
+          target = pathlib.Path('release-stage/r6/scripts/G-RedRuntime')
+          files = sorted(core.rglob('*.reds'))
+          assert files
+          for source in files:
+              dest = target / source.relative_to(core)
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, dest)
+          import os
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'FRAMEWORK_VERSION={version}\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: G-REDruntime-v${{ env.FRAMEWORK_VERSION }}
+          path: release-stage/
+          if-no-files-found: error
+          retention-days: 90

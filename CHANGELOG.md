@@ -4,11 +4,11 @@ All notable G-REDruntime development passes are recorded here.
 
 A pass is only marked **Accepted** after compile, runtime, functional, and profiling review. Candidate builds do not automatically become the next base.
 
-## [Unreleased] — standalone diagnostics compatibility
+## [0.6.1] — standalone runtime compatibility (2026-11-25)
 
 - Remove the accidental global logging-header dependency in both manual diagnostic entry points. Return the same diagnostic information as a String for caller-owned output; no new native declarations, logging mod, or gameplay changes.
 - Standalone SCC #1147 revealed a second dependency: Codeware's GameInstance.GetSystemRequestsHandler convenience extension. Use its underlying vanilla inkMenuScenario getter directly, preserving the cached handle and public API.
-- MO2 small-profile compiler failure exposed the dependency hidden by the large source stack. Standalone vanilla SCC and combined-stack verification remain pending.
+- MO2 small-profile compiler failure exposed the dependency hidden by the large source stack. GCO full checkpoint #1148 passed standalone SCC 0.5.31 against the vanilla game cache with all 12 framework sources and zero external script providers. The corrected source is compile-verified; the version-only release and gameplay retest are separate. No Codeware or external logging header is required.
 
 ## [Unreleased] — shared CET-native location subscriptions (EXPERIMENTAL)
 
