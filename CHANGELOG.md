@@ -4,6 +4,11 @@ All notable G-REDruntime development passes are recorded here.
 
 A pass is only marked **Accepted** after compile, runtime, functional, and profiling review. Candidate builds do not automatically become the next base.
 
+## [Unreleased] — standalone diagnostics compatibility
+
+- Remove the accidental global logging-header dependency in both manual diagnostic entry points. Return the same diagnostic information as a String for caller-owned output; no new native declarations, logging mod, or gameplay changes.
+- MO2 small-profile compiler failure exposed the dependency hidden by the large source stack. Standalone vanilla SCC and combined-stack verification remain pending.
+
 ## [Unreleased] — shared CET-native location subscriptions (EXPERIMENTAL)
 
 - `Runtime.GetNativeLocations()` manages per-mod native location subscriptions with a single shared `Scheduler` drain, an independent native consumer ID, source-owner/index routing, UNKNOWN invalidation on player changes, deduplicated watches and cleanup on last interest.

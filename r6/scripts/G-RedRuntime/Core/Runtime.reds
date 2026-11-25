@@ -193,16 +193,18 @@ public class Runtime extends ScriptableSystem {
     this.m_input.Publish(action);
   }
 
-  public func DumpDiagnostics() -> Void {
+  // Explicit caller-owned output; no optional global logging headers.
+  public func DumpDiagnostics() -> String {
     let snap = this.m_diagnostics.Snapshot();
-    LogChannel(n"G-RedRuntime", s"G-RedRuntime \(this.GetVersion()) ready=\(this.m_ready)");
-    LogChannel(n"G-RedRuntime", s"scheduler wakeups=\(snap.schedulerWakeups) jobRuns=\(snap.schedulerJobRuns) activeJobs=\(this.m_scheduler.GetActiveJobCount())");
-    LogChannel(n"G-RedRuntime", s"events publishes=\(snap.eventPublishes) deliveries=\(snap.eventDeliveries)");
-    LogChannel(n"G-RedRuntime", s"input seen=\(snap.inputEventsSeen) deliveries=\(snap.inputDeliveries)");
-    LogChannel(n"G-RedRuntime", s"hooks dispatches=\(snap.hookDispatches) deliveries=\(snap.hookDeliveries)");
-    LogChannel(n"G-RedRuntime", s"state cache hits=\(snap.stateCacheHits) misses=\(snap.stateCacheMisses)");
+    let report = s"G-RedRuntime \(this.GetVersion()) ready=\(this.m_ready)";
+    report += s"\nscheduler wakeups=\(snap.schedulerWakeups) jobRuns=\(snap.schedulerJobRuns) activeJobs=\(this.m_scheduler.GetActiveJobCount())";
+    report += s"\nevents publishes=\(snap.eventPublishes) deliveries=\(snap.eventDeliveries)";
+    report += s"\ninput seen=\(snap.inputEventsSeen) deliveries=\(snap.inputDeliveries)";
+    report += s"\nhooks dispatches=\(snap.hookDispatches) deliveries=\(snap.hookDeliveries)";
+    report += s"\nstate cache hits=\(snap.stateCacheHits) misses=\(snap.stateCacheMisses)";
     if IsDefined(this.m_nativeLocations) {
-      LogChannel(n"G-RedRuntime", s"native location subscribers=\(this.m_nativeLocations.GetActiveInterestCount()) snapshots=\(this.m_nativeLocations.GetSnapshotCount()) deliveries=\(this.m_nativeLocations.GetDeliveryCount())");
+      report += s"\nnative location subscribers=\(this.m_nativeLocations.GetActiveInterestCount()) snapshots=\(this.m_nativeLocations.GetSnapshotCount()) deliveries=\(this.m_nativeLocations.GetDeliveryCount())";
     }
+    return report;
   }
 }

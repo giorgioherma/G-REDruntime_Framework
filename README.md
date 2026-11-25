@@ -1013,15 +1013,16 @@ runtime.GetDiagnostics().Reset();
 The runtime also exposes:
 
 ```reds
-runtime.DumpDiagnostics();
+let report = runtime.DumpDiagnostics();
 ```
 
 and adds a helper method to `PlayerPuppet`:
 
 ```reds
-Game.GetPlayer():GRedRuntimeDump()```
+print(Game.GetPlayer():GRedRuntimeDump())
+```
 
-The dump writes to the `G-RedRuntime` log channel.
+The dump returns a diagnostic string. The caller chooses how to display it (for example CET console `print`). The core neither requires nor declares the optional global logging headers. The two manual diagnostic methods now return `String` instead of `Void`; gameplay and runtime services are unchanged.
 
 There is no periodic diagnostic logging in the framework core.
 

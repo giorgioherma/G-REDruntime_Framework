@@ -1,11 +1,10 @@
 module GRedRuntime
 
 @addMethod(PlayerPuppet)
-public func GRedRuntimeDump() -> Void {
+public func GRedRuntimeDump() -> String {
   let runtime = Runtime.Get(this.GetGame());
   if IsDefined(runtime) {
-    runtime.DumpDiagnostics();
-  } else {
-    LogChannel(n"G-RedRuntime", "G-RedRuntime is not available");
+    return runtime.DumpDiagnostics();
   }
+  return "G-RedRuntime is not available";
 }

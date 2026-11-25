@@ -23,7 +23,7 @@ An integration must not require a mod to:
 - rename public modules, classes or methods merely to fit the framework;
 - install a shadow copy of the mod in a framework-specific directory.
 
-The framework core must compile and remain dormant with zero integrations.
+The framework core must compile and remain dormant with zero integrations, against the vanilla game script cache and REDscript alone. No optional third-party script provider or global logging declarations may be required. Manual diagnostic output is returned to the caller; no global logging headers are introduced.
 
 ## Supported integration forms
 
