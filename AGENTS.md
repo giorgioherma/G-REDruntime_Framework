@@ -1,0 +1,13 @@
+# G-REDruntime engineering rules
+
+## Authority and startup
+Read this file, [CURRENT-TASK](CURRENT-TASK.md), [architecture](docs/ARCHITECTURE.md) and [latest checkpoint](docs/LATEST-WORK.md). The [GCO cross-repository assignment](https://github.com/giorgioherma/Gs-Cyberpunk2077_Optimizations/blob/main/CURRENT-TASK.md) sets development scope with the user's latest explicit instructions. The public developer blueprint and subsystem contracts define service behavior, not a task queue. Historical proposals and changelogs do not authorize new work.
+
+## Durable rules
+- Work on main; do not create new branches, change release/version metadata or promote experiments without explicit authorization.
+- G-REDruntime owns reusable REDscript runtime services and their API/lifecycle. GCO main owns the managed REDscript Resolver, source admission, per-mod adapters, generic/semantic generation, official SCC and combined ZIP. GRSP owns profiling; CET owns its native/Lua generator and native location DLL. No second generator or mod-specific catalog here.
+- Shared work once for compatible consumers, event-first but not event-only. Use existing services and one Scheduler. Activate optional production only for actual demand, preserve deadlines, identity, ownership, lifecycle, unregister/cleanup, reentrant order, fallback and UNKNOWN state. Do not infer authoritative values from unproven events or publish fabricated state.
+- Keep the core dependency-free beyond vanilla REDscript. No hard dependency on optional mods, Codeware, logging headers or CET DLL; optional native declarations and adapters remain outside core, introduced only by separately accepted owner integration. Framework inclusion in GCO output is conditional on accepted rules.
+- Preserve supported API contracts and original mod gameplay, callback order, data and cleanup. Prefer compatible additive changes; never silently overwrite mods or require new package formats. Use source-proven compatible adapters, not fixed mod/version/hash lists or broad exclusions.
+- Validate actual source and lifecycle behavior, standalone vanilla SCC and full generated-stack SCC in GCO CI where applicable, independent owner framework contracts, dependency/partial/idempotence checks and runtime/measurement separately. Green CI alone is not gameplay acceptance. No invented gains or overlapping timing totals.
+- Keep version and packaging provenance intact; no duplicate pipelines, native rebuild or docs-only expensive CI. Record exact verified checkpoint and pending evidence. Do not create an unassigned optimization or stop condition from research.
